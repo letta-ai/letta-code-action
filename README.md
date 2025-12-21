@@ -85,6 +85,40 @@ Each comment includes a footer with:
 - Link to the job run
 - Command to continue chatting in your terminal: `letta --agent <id>`
 
+## Triggers
+
+The action only runs when explicitly triggered. There are several ways to trigger it:
+
+| Trigger | How it works |
+|---------|--------------|
+| **Mention** | Include `@letta-code` in a comment, issue body, or PR body |
+| **Label** | Add the `letta` label to an issue (configurable via `label_trigger`) |
+| **Assignee** | Assign a specific user to an issue (configure via `assignee_trigger`) |
+| **Prompt** | Set the `prompt` input for automated workflows (see below) |
+
+**Important:** Replying to a comment without `@letta-code` will *not* trigger the action. Each interaction requires an explicit trigger.
+
+### Automated Mode
+
+For workflows that should run automatically (e.g., auto-review every PR), use the `prompt` input:
+
+```yaml
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  auto-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: letta-ai/letta-code-action@v0
+        with:
+          letta_api_key: ${{ secrets.LETTA_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: "Review this PR for bugs and security issues"
+```
+
 ## Agent Persistence
 
 The agent ID is stored in a hidden HTML comment in the tracking comment. On follow-up mentions, the action finds this metadata and resumes the same agent, preserving conversation history and memory.
@@ -97,6 +131,7 @@ To force a new agent, use the bracket syntax: `@letta-code [--new] start fresh`
 | ------------------ | -------------------------------------------------------- | ------------- |
 | `letta_api_key`    | Your Letta API key                                       | Required      |
 | `github_token`     | GitHub token for API access                              | Required      |
+| `prompt`           | Auto-trigger with this prompt (for automated workflows)  | None          |
 | `trigger_phrase`   | Phrase that activates the agent                          | `@letta-code` |
 | `model`            | Model to use (`opus`, `sonnet-4.5`, `haiku`, `gpt-4.1`)  | `opus`        |
 | `assignee_trigger` | Username that triggers when assigned (e.g., `letta-bot`) | None          |
