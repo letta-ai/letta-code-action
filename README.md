@@ -92,7 +92,7 @@ The action only runs when explicitly triggered. There are several ways to trigge
 | Trigger | How it works |
 |---------|--------------|
 | **Mention** | Include `@letta-code` in a comment, issue body, or PR body |
-| **Label** | Add the `letta` label to an issue (configurable via `label_trigger`) |
+| **Label** | Add the `letta-code` label to an issue (configurable via `label_trigger`) |
 | **Assignee** | Assign a specific user to an issue (configure via `assignee_trigger`) |
 | **Prompt** | Set the `prompt` input for automated workflows (see below) |
 
@@ -135,7 +135,7 @@ To force a new agent, use the bracket syntax: `@letta-code [--new] start fresh`
 | `trigger_phrase`   | Phrase that activates the agent                          | `@letta-code` |
 | `model`            | Model to use (`opus`, `sonnet-4.5`, `haiku`, `gpt-4.1`)  | `opus`        |
 | `assignee_trigger` | Username that triggers when assigned (e.g., `letta-bot`) | None          |
-| `label_trigger`    | Label that triggers the action                           | `letta`       |
+| `label_trigger`    | Label that triggers the action                           | `letta-code`  |
 
 ## Bracket Syntax
 
