@@ -89,14 +89,14 @@ Each comment includes a footer with:
 
 The action only runs when explicitly triggered. There are several ways to trigger it:
 
-| Trigger | How it works |
-|---------|--------------|
-| **Mention** | Include `@letta-code` in a comment, issue body, or PR body |
-| **Label** | Add the `letta-code` label to an issue (configurable via `label_trigger`) |
-| **Assignee** | Assign a specific user to an issue (configure via `assignee_trigger`) |
-| **Prompt** | Set the `prompt` input for automated workflows (see below) |
+| Trigger      | How it works                                                              |
+| ------------ | ------------------------------------------------------------------------- |
+| **Mention**  | Include `@letta-code` in a comment, issue body, or PR body                |
+| **Label**    | Add the `letta-code` label to an issue (configurable via `label_trigger`) |
+| **Assignee** | Assign a specific user to an issue (configure via `assignee_trigger`)     |
+| **Prompt**   | Set the `prompt` input for automated workflows (see below)                |
 
-**Important:** Replying to a comment without `@letta-code` will *not* trigger the action. Each interaction requires an explicit trigger.
+**Important:** Replying to a comment without `@letta-code` will _not_ trigger the action. Each interaction requires an explicit trigger.
 
 ### Automated Mode
 
