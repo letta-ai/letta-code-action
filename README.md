@@ -4,6 +4,11 @@ A GitHub Action that allows you to connect with Letta agents within your reposit
 
 Mention `@letta-code` in any issue or PR to get help with code questions, implementation, and reviews.
 
+> [!WARNING]
+> The **Letta Code** GitHub Actions integration is currently experimental - expect breaking changes.
+>
+> Chat with our team by opening an issue/PR or joining [our Discord](https://discord.gg/letta).
+
 ## How does it work?
 
 The `@letta-code` trigger uses the [Letta Code](https://github.com/letta-ai/letta-code) CLI harness (in headless mode) to "teleport" your Letta agents into a sandbox that has access to your GitHub repo.
