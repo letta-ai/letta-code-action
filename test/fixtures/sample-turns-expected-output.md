@@ -90,4 +90,4 @@ The debug print statement has been removed as requested by the reviewers.
 
 Successfully removed debug print statement from file and added review comment to document the change.
 
-**Cost:** $0.0347 | **Duration:** 18.8s
+**Tokens:** 15,700 | **Duration:** 18.8s
