@@ -132,17 +132,17 @@ To force a new agent, use the bracket syntax: `@letta-code [--new] start fresh`
 
 ## Configuration
 
-| Input                     | Description                                                    | Default       |
-| ------------------------- | -------------------------------------------------------------- | ------------- |
-| `letta_api_key`           | Your Letta API key                                             | Required      |
-| `github_token`            | GitHub token for API access                                    | Required      |
-| `prompt`                  | Auto-trigger with this prompt (for automated workflows)        | None          |
-| `trigger_phrase`          | Phrase that activates the agent                                | `@letta-code` |
-| `model`                   | Model to use (`opus`, `sonnet-4.5`, `haiku`, `gpt-4.1`)        | `opus`        |
-| `assignee_trigger`        | Username that triggers when assigned (e.g., `letta-bot`)       | None          |
-| `label_trigger`           | Label that triggers the action                                 | `letta-code`  |
-| `allowed_bots`            | Comma-separated bot usernames allowed to trigger (or `*`)      | None          |
-| `allowed_non_write_users` | Users allowed without write permissions (use with caution)     | None          |
+| Input                     | Description                                                | Default       |
+| ------------------------- | ---------------------------------------------------------- | ------------- |
+| `letta_api_key`           | Your Letta API key                                         | Required      |
+| `github_token`            | GitHub token for API access                                | Required      |
+| `prompt`                  | Auto-trigger with this prompt (for automated workflows)    | None          |
+| `trigger_phrase`          | Phrase that activates the agent                            | `@letta-code` |
+| `model`                   | Model to use (`opus`, `sonnet-4.5`, `haiku`, `gpt-4.1`)    | `opus`        |
+| `assignee_trigger`        | Username that triggers when assigned (e.g., `letta-bot`)   | None          |
+| `label_trigger`           | Label that triggers the action                             | `letta-code`  |
+| `allowed_bots`            | Comma-separated bot usernames allowed to trigger (or `*`)  | None          |
+| `allowed_non_write_users` | Users allowed without write permissions (use with caution) | None          |
 
 ## Bracket Syntax
 
@@ -218,10 +218,10 @@ The agent ID is shown in every GitHub comment footer.
 
 **By default, only repository collaborators with write access can trigger the action.** This prevents random users on public repos from consuming your API credits.
 
-| Input                     | Description                                                                 | Default |
-| ------------------------- | --------------------------------------------------------------------------- | ------- |
-| `allowed_bots`            | Comma-separated bot usernames (or `*` for all) that can trigger the action | None    |
-| `allowed_non_write_users` | Comma-separated usernames to allow without write permissions (use with caution) | None |
+| Input                     | Description                                                                     | Default |
+| ------------------------- | ------------------------------------------------------------------------------- | ------- |
+| `allowed_bots`            | Comma-separated bot usernames (or `*` for all) that can trigger the action      | None    |
+| `allowed_non_write_users` | Comma-separated usernames to allow without write permissions (use with caution) | None    |
 
 The action checks permissions via the GitHub API before running. If a user without write access tries to trigger `@letta-code`, the action will fail with "Actor does not have write permissions to the repository".
 
