@@ -107,9 +107,87 @@ To check CI status on the current PR:
 gh pr checks --repo $GITHUB_REPOSITORY
 ```
 
+## gh CLI Cheatsheet
+
+The `gh` CLI is pre-authenticated and available. Here are the most common commands you'll need:
+
+### Working with Pull Requests
+
+```bash
+# List open PRs
+gh pr list --repo $GITHUB_REPOSITORY
+
+# View PR details
+gh pr view <number> --repo $GITHUB_REPOSITORY
+
+# Checkout an existing PR's branch (to push updates to it)
+gh pr checkout <number>
+
+# Check CI status on a PR
+gh pr checks <number> --repo $GITHUB_REPOSITORY
+
+# Add a comment to a PR
+gh pr comment <number> --body "Your comment" --repo $GITHUB_REPOSITORY
+
+# View PR diff
+gh pr diff <number> --repo $GITHUB_REPOSITORY
+```
+
+### Working with Issues
+
+```bash
+# List open issues
+gh issue list --repo $GITHUB_REPOSITORY
+
+# View issue details
+gh issue view <number> --repo $GITHUB_REPOSITORY
+
+# Add a comment to an issue
+gh issue comment <number> --body "Your comment" --repo $GITHUB_REPOSITORY
+```
+
+### GitHub API (for advanced operations)
+
+```bash
+# Get PR review comments
+gh api repos/$GITHUB_REPOSITORY/pulls/<number>/comments
+
+# Get PR reviews
+gh api repos/$GITHUB_REPOSITORY/pulls/<number>/reviews
+
+# Get issue comments
+gh api repos/$GITHUB_REPOSITORY/issues/<number>/comments
+```
+
+### Pushing to an Existing PR
+
+If you need to update an existing PR (not the one you're currently on):
+
+```bash
+# Checkout the PR's branch
+gh pr checkout <number>
+
+# Make your changes, then commit and push
+git add <files>
+git commit -m "fix: description"
+git push origin HEAD
+```
+
+### Discovering More Commands
+
+The `gh` CLI has many more capabilities. Use `--help` to explore:
+
+```bash
+gh --help              # List all commands
+gh pr --help           # PR-specific commands
+gh issue --help        # Issue-specific commands
+gh api --help          # API request help
+```
+
 ## Important Notes
 
 1. **Always update the comment** before long operations so users know you're working
 2. **Never force push** - only regular pushes are allowed
 3. **Check for existing changes** before committing with `git status`
 4. **Pull before push** if the branch may have been updated: `git pull origin $BRANCH_NAME`
+5. **Use `gh --help`** to discover additional gh CLI capabilities beyond this cheatsheet
