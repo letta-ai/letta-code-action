@@ -38,6 +38,7 @@ gh api repos/$GITHUB_REPOSITORY/pulls/<number>/comments | jq '.[] | select(.path
 ### Understanding Review Comment Structure
 
 Key fields in review comments:
+
 - `path`: File being commented on
 - `line` / `original_line`: Line number in the diff
 - `body`: The reviewer's comment text
@@ -67,6 +68,7 @@ gh api repos/$GITHUB_REPOSITORY/pulls/<number>/comments \
 ### Marking Conversations as Resolved
 
 After addressing feedback, the reviewer typically resolves the conversation. You can indicate you've addressed it by:
+
 1. Replying to the comment explaining what you changed
 2. Updating your tracking comment with a summary
 
@@ -98,6 +100,7 @@ git diff origin/$BASE_BRANCH...HEAD
 ### Providing Feedback
 
 Post your review feedback to your tracking comment. Structure it clearly:
+
 - Group feedback by file
 - Reference specific line numbers
 - Distinguish between required changes and suggestions
