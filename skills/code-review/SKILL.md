@@ -138,48 +138,24 @@ To add comments on specific lines of code (shown inline in GitHub's diff view):
 # First, get the latest commit SHA
 COMMIT_SHA=$(gh pr view <number> --json headRefOid --jq '.headRefOid')
 
-# Create a review comment on a specific line
+# Create a review comment on a specific position in the diff
+# Note: position is the line number in the diff (not the file), starting from 1
 gh api repos/$GITHUB_REPOSITORY/pulls/<number>/comments \
   -X POST \
   -f body="Consider using a more descriptive variable name here" \
   -f commit_id="$COMMIT_SHA" \
   -f path="src/example.ts" \
-  -f line=42 \
-  -f side="RIGHT"
+  -F position=10
 ```
 
 ### Key Fields for Line Comments
 
 - `commit_id`: The SHA of the commit to comment on (use latest)
 - `path`: File path relative to repo root
-- `line`: Line number in the file (for new code, use the line in the new version)
-- `side`: `RIGHT` for new code, `LEFT` for deleted code
+- `position`: Position in the diff (line number in the diff hunk, starting at 1)
 - `body`: Your comment text
 
-### Batch Multiple Comments in One Review
-
-For multiple comments, create a pending review first:
-
-```bash
-# Start a pending review
-gh api repos/$GITHUB_REPOSITORY/pulls/<number>/reviews \
-  -X POST \
-  -f commit_id="$COMMIT_SHA" \
-  -f event="PENDING" \
-  -f body=""
-
-# Get the review ID from the response, then add comments
-gh api repos/$GITHUB_REPOSITORY/pulls/<number>/reviews/<review_id>/comments \
-  -X POST \
-  -f body="Comment 1" \
-  -f path="file1.ts" \
-  -f line=10
-
-# Submit the review when done
-gh api repos/$GITHUB_REPOSITORY/pulls/<number>/reviews/<review_id>/events \
-  -X POST \
-  -f event="COMMENT"  # or "APPROVE" or "REQUEST_CHANGES"
-```
+**Note:** The `position` is the line number within the diff, not the line number in the file. Count lines from the start of the diff hunk.
 
 ## Iterating on Changes
 
