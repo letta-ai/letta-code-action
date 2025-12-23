@@ -11,6 +11,7 @@ import {
   type Turn,
   type ToolUse,
   type ToolResult,
+  type GroupedContent,
 } from "../src/entrypoints/format-turns";
 
 describe("detectContentType", () => {
@@ -355,6 +356,32 @@ describe("formatGroupedContent", () => {
     expect(result).toContain("Success!");
     expect(result).toContain("**Cost:** $0.1234");
     expect(result).toContain("**Duration:** 5.7s");
+  });
+
+  test("formats final results with token usage instead of cost", () => {
+    const groupedContent: GroupedContent[] = [
+      {
+        type: "final_result",
+        data: {
+          type: "result",
+          duration_ms: 5678,
+          result: "Success!",
+          usage: {
+            prompt_tokens: 1000,
+            completion_tokens: 500,
+            total_tokens: 1500,
+          },
+        } as Turn,
+      },
+    ];
+
+    const result = formatGroupedContent(groupedContent);
+
+    expect(result).toContain("## ✅ Final Result");
+    expect(result).toContain("Success!");
+    expect(result).toContain("**Tokens:** 1,500");
+    expect(result).toContain("**Duration:** 5.7s");
+    expect(result).not.toContain("**Cost:**");
   });
 });
 

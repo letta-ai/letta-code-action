@@ -397,15 +397,23 @@ export function formatGroupedContent(groupedContent: GroupedContent[]): string {
       markdown += "---\n\n";
     } else if (itemType === "final_result") {
       const data = item.data || {};
-      const cost = (data as any).total_cost_usd || (data as any).cost_usd || 0;
       const duration = (data as any).duration_ms || 0;
       const resultText = (data as any).result || "";
+      const usage = (data as any).usage;
 
       markdown += "## ✅ Final Result\n\n";
       if (resultText) {
         markdown += `${resultText}\n\n`;
       }
-      markdown += `**Cost:** $${cost.toFixed(4)} | **Duration:** ${(duration / 1000).toFixed(1)}s\n\n`;
+
+      // Show tokens if available, otherwise show cost for backwards compatibility
+      if (usage?.total_tokens) {
+        markdown += `**Tokens:** ${usage.total_tokens.toLocaleString()} | **Duration:** ${(duration / 1000).toFixed(1)}s\n\n`;
+      } else {
+        const cost =
+          (data as any).total_cost_usd || (data as any).cost_usd || 0;
+        markdown += `**Cost:** $${cost.toFixed(4)} | **Duration:** ${(duration / 1000).toFixed(1)}s\n\n`;
+      }
     }
   }
 
