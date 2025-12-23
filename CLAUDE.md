@@ -8,10 +8,13 @@ Guidance for AI coding assistants (including Letta Code) working on this reposit
 - **Language**: TypeScript (strict mode)
 
 ```bash
+bun run install-hooks # Install pre-commit hooks (run once after clone)
 bun test              # Run tests
 bun run format        # Format with prettier
 bun run typecheck     # TypeScript check
 ```
+
+The pre-commit hook runs prettier, typecheck, and tests before each commit.
 
 ## What This Is
 
