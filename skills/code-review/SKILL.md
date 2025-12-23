@@ -93,8 +93,8 @@ gh pr diff <number> --repo $GITHUB_REPOSITORY
 # View changed files list
 gh pr view <number> --repo $GITHUB_REPOSITORY --json files
 
-# Compare with base branch
-git diff origin/$BASE_BRANCH...HEAD
+# Compare with base branch (use two dots for shallow clones in GitHub Actions)
+git diff origin/$BASE_BRANCH..HEAD
 ```
 
 ### Providing Feedback
@@ -105,6 +105,81 @@ Post your review feedback to your tracking comment. Structure it clearly:
 - Reference specific line numbers
 - Distinguish between required changes and suggestions
 - Be constructive and specific
+
+## Submitting Interactive Reviews
+
+Use `gh pr review` to submit formal GitHub reviews that appear in the PR's review UI.
+
+### Approve a PR
+
+```bash
+gh pr review <number> --approve --body "LGTM! Changes look good."
+```
+
+### Request Changes
+
+```bash
+gh pr review <number> --request-changes --body "Please address the following issues..."
+```
+
+### Leave a Comment Review (without approval/rejection)
+
+```bash
+gh pr review <number> --comment --body "Some observations about the code..."
+```
+
+## Adding Line-Level Comments
+
+To add comments on specific lines of code (shown inline in GitHub's diff view):
+
+### Create a Review with Line Comments
+
+```bash
+# First, get the latest commit SHA
+COMMIT_SHA=$(gh pr view <number> --json headRefOid --jq '.headRefOid')
+
+# Create a review comment on a specific line
+gh api repos/$GITHUB_REPOSITORY/pulls/<number>/comments \
+  -X POST \
+  -f body="Consider using a more descriptive variable name here" \
+  -f commit_id="$COMMIT_SHA" \
+  -f path="src/example.ts" \
+  -f line=42 \
+  -f side="RIGHT"
+```
+
+### Key Fields for Line Comments
+
+- `commit_id`: The SHA of the commit to comment on (use latest)
+- `path`: File path relative to repo root
+- `line`: Line number in the file (for new code, use the line in the new version)
+- `side`: `RIGHT` for new code, `LEFT` for deleted code
+- `body`: Your comment text
+
+### Batch Multiple Comments in One Review
+
+For multiple comments, create a pending review first:
+
+```bash
+# Start a pending review
+gh api repos/$GITHUB_REPOSITORY/pulls/<number>/reviews \
+  -X POST \
+  -f commit_id="$COMMIT_SHA" \
+  -f event="PENDING" \
+  -f body=""
+
+# Get the review ID from the response, then add comments
+gh api repos/$GITHUB_REPOSITORY/pulls/<number>/reviews/<review_id>/comments \
+  -X POST \
+  -f body="Comment 1" \
+  -f path="file1.ts" \
+  -f line=10
+
+# Submit the review when done
+gh api repos/$GITHUB_REPOSITORY/pulls/<number>/reviews/<review_id>/events \
+  -X POST \
+  -f event="COMMENT"  # or "APPROVE" or "REQUEST_CHANGES"
+```
 
 ## Iterating on Changes
 
