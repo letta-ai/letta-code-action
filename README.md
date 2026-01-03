@@ -211,8 +211,6 @@ The agent ID is shown in every GitHub comment footer.
 
 - Approve PRs (security restriction)
 - Modify workflow files (GitHub doesn't allow this)
-- Access external services not available in the runner
-- Remember things across different issues/PRs (each issue gets its own agent)
 
 ## Security
 
