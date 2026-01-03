@@ -184,51 +184,6 @@ gh issue --help        # Issue-specific commands
 gh api --help          # API request help
 ```
 
-## Iterating on Existing Work (CRITICAL)
-
-When you receive a follow-up request (e.g., "change X to Y" or "fix this issue"), **ALWAYS check for existing work first**:
-
-### How to Check for Existing PRs
-
-```bash
-# List PRs that mention this issue
-gh pr list --repo $GITHUB_REPOSITORY --search "issue:NUMBER"
-
-# Or check for PRs on branches you may have created
-gh pr list --repo $GITHUB_REPOSITORY --head "letta/"
-```
-
-### If an Existing PR/Branch is Found
-
-**DO NOT create a new branch.** Instead:
-
-```bash
-# Checkout the existing PR's branch
-gh pr checkout <pr_number>
-
-# Make your changes
-# ...
-
-# Commit and push to the SAME branch
-git add <files>
-git commit -m "fix: address feedback - change X to Y"
-git push origin HEAD
-```
-
-### Why This Matters
-
-- Creating a new branch breaks the existing PR link
-- Users expect changes to appear in the PR they're already reviewing
-- It avoids duplicate work and keeps the conversation in one place
-
-### When to Create a New Branch
-
-Only create a new branch when:
-
-- This is the first time working on this issue (no prior PRs exist)
-- The previous PR was closed/rejected and you're starting fresh
-- The user explicitly asks for a new PR
-
 ## Important Notes
 
 1. **Always update the comment** before long operations so users know you're working
@@ -236,4 +191,3 @@ Only create a new branch when:
 3. **Check for existing changes** before committing with `git status`
 4. **Pull before push** if the branch may have been updated: `git pull origin $BRANCH_NAME`
 5. **Use `gh --help`** to discover additional gh CLI capabilities beyond this cheatsheet
-6. **ALWAYS iterate on existing branches** - check for prior work before creating new branches
