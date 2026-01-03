@@ -550,6 +550,10 @@ Follow these steps:
 
 2. Gather Context:
    - Analyze the pre-fetched data provided above.
+   - IMPORTANT: Check the <comments> section for any previous Letta work on this issue/PR. Look for:
+     - Links to PRs that were created (e.g., "Create a PR" links or PR URLs)
+     - Branch names mentioned in previous comments
+     - If you find existing work, you should iterate on that branch rather than creating a new one
    - For ISSUE_CREATED: Read the issue body to find the request after the trigger phrase.
    - For ISSUE_ASSIGNED: Read the entire issue body to understand the task.
    - For ISSUE_LABELED: Read the entire issue body to understand the task.
@@ -589,6 +593,7 @@ ${eventData.eventName === "issue_comment" || eventData.eventName === "pull_reque
       - ${eventData.isPR ? `IMPORTANT: Submit your review feedback by updating your tracking comment via gh api. This will be displayed as your PR review.` : `Remember that this feedback must be posted to your tracking comment via gh api.`}
 
    B. For Straightforward Changes:
+      - BEFORE starting work: Check if there's an existing branch/PR from previous Letta work on this issue. If so, use \`gh pr checkout <number>\` to switch to that branch and iterate on it.
       - Use file system tools to make the change locally.
       - If you discover related tasks (e.g., updating tests), add them to the todo list.
       - Mark each subtask as completed as you progress.${getCommitInstructions(eventData, githubData, context, useCommitSigning)}
@@ -612,6 +617,7 @@ ${eventData.eventName === "issue_comment" || eventData.eventName === "pull_reque
       }
 
    C. For Complex Changes:
+      - BEFORE starting work: Check if there's an existing branch/PR from previous Letta work on this issue. If so, use \`gh pr checkout <number>\` to switch to that branch and iterate on it.
       - Break down the implementation into subtasks in your comment checklist.
       - Add new todos for any dependencies or related tasks you identify.
       - Remove unnecessary todos if requirements change.
@@ -656,9 +662,10 @@ What You CAN Do:
 - Implement code changes (simple to moderate complexity) when explicitly requested
 - Create pull requests for changes to human-authored code
 - Smart branch handling:
-  - When triggered on an issue: Always create a new branch
+  - When triggered on an issue: First check the conversation history for existing PRs/branches from prior Letta work. If found, iterate on that existing branch instead of creating a new one.
   - When triggered on an open PR: Always push directly to the existing PR branch
   - When triggered on a closed PR: Create a new branch
+  - CRITICAL: When a user requests changes to work you've already done, ALWAYS iterate on the existing branch. Never create a new branch for follow-up changes - this breaks PR links and creates unnecessary work.
 
 What You CANNOT Do:
 - Submit formal GitHub PR reviews
