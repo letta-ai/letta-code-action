@@ -1,24 +1,11 @@
-# Letta Code GitHub Action Integration
+# Letta Code GitHub Action
 
-A GitHub Action that allows you to connect with Letta agents within your repository.
-
-Mention `@letta-code` in any issue or PR to get help with code questions, implementation, and reviews.
+A GitHub Action that brings stateful AI coding agents to your repository. Mention `@letta-code` in any issue or PR to get help with code questions, implementation, and reviews.
 
 > [!WARNING]
-> The **Letta Code** GitHub Actions integration is currently experimental - expect breaking changes.
+> The **Letta Code** GitHub Action is experimental - expect breaking changes.
 >
 > Chat with our team by opening an issue/PR or joining [our Discord](https://discord.gg/letta).
-
-## How does it work?
-
-The `@letta-code` trigger uses the [Letta Code](https://github.com/letta-ai/letta-code) CLI harness (in headless mode) to "teleport" your Letta agents into a sandbox that has access to your GitHub repo.
-Within the sandbox, the agent can do things like post comments (to GitHub), review code, and open branches / PRs.
-
-By default, the `@letta-code` trigger will spawn a new agent on the first call within a context, and subsequent tags within the same context will route to the same agent.
-This means that within a single GitHub issue for example, each time you tag the `@letta-code`, you're sending messages to the same agent.
-If you would like to chat with an existing agent rather than spawning a new one, you can also use `@letta-code [--agent agent_id] ...` to invoke an existing agent specifically.
-
-Because Letta agents are running on a server and are persisted indefinitely, you can easily access the agents on the [Agent Development Environment (ADE)](https://app.letta.com) web interface, or even "teleport" them into another CLI session (by starting Letta Code with the `letta --agent agent_id` flag).
 
 ## Quick Start
 
@@ -26,13 +13,20 @@ Because Letta agents are running on a server and are persisted indefinitely, you
 2. Add `LETTA_API_KEY` to your repository secrets
 3. Create `.github/workflows/letta.yml`:
 
+### Using an existing agent
+
+If you already have a Letta agent (created via the [ADE](https://app.letta.com) or CLI), configure its ID:
+
 ```yaml
 name: Letta Code
+
 on:
+  issues:
+    types: [opened, labeled]
   issue_comment:
     types: [created]
-  issues:
-    types: [opened, assigned]
+  pull_request:
+    types: [opened, labeled]
   pull_request_review_comment:
     types: [created]
 
@@ -45,78 +39,159 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+      - uses: letta-ai/letta-code-action@v0
         with:
-          fetch-depth: 1
+          letta_api_key: ${{ secrets.LETTA_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          agent_id: ${{ vars.LETTA_AGENT_ID }}
+```
+
+> **Note:** Store your agent ID as a [repository variable](https://docs.github.com/en/actions/learn-github-actions/variables) at Settings → Secrets and variables → Actions → Variables.
+
+### Creating a new agent
+
+If you don't have an agent yet, omit the `agent_id` and the action will create one automatically:
+
+```yaml
+name: Letta Code
+
+on:
+  issues:
+    types: [opened, labeled]
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, labeled]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  letta:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
       - uses: letta-ai/letta-code-action@v0
         with:
           letta_api_key: ${{ secrets.LETTA_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-That's it. Now mention `@letta-code` in any issue or PR comment.
+The agent ID will be shown in the comment footer. You can then add it to your workflow to reuse the same agent.
 
-### Using a Custom Bot Identity
-
-To have comments appear as `your-app[bot]` instead of `github-actions[bot]`, use a GitHub App:
-
-```yaml
-steps:
-  - uses: actions/checkout@v4
-  - name: Generate GitHub App token
-    id: app-token
-    uses: actions/create-github-app-token@v1
-    with:
-      app-id: ${{ secrets.APP_ID }}
-      private-key: ${{ secrets.APP_PRIVATE_KEY }}
-  - uses: letta-ai/letta-code-action@v0
-    with:
-      letta_api_key: ${{ secrets.LETTA_API_KEY }}
-      github_token: ${{ steps.app-token.outputs.token }}
-```
+That's it! Now mention `@letta-code` in any issue or PR comment.
 
 ## How It Works
 
 When you mention `@letta-code`, the action:
 
 1. Creates a tracking comment showing the agent is working
-2. Resumes the same conversation if one was used before on this issue/PR (via metadata in comments)
+2. Resumes the same conversation if one exists for this issue/PR
 3. Runs the agent with full access to read files, run commands, and make commits
-4. Updates the comment with results and a link to view the agent in the [ADE](https://app.letta.com)
+4. Updates the comment with results and links to continue the conversation
 
-Each comment includes a footer with:
+Each response includes a footer like:
 
-- Agent ID (click to open in Letta's Agent Development Environment)
-- Conversation ID (for concurrent task handling)
-- Model used
-- Link to the job run
-- Command to continue chatting in your terminal: `letta --conv <conv-id>`
+```
+🤖 Agent: Memo • View job run
+💻 Chat with this agent in your terminal: letta --conv conv-abc123
+```
 
-### Concurrency with Conversations
+Click the agent name to open the conversation in the [Letta ADE](https://app.letta.com).
 
-The action uses Letta's **Conversations API** to enable concurrent task handling. Each issue or PR gets its own conversation thread, which means:
+## Conversations
 
-- **Same agent, parallel tasks**: Multiple PRs/issues can use the same agent simultaneously without interference
-- **Context isolation**: Each conversation maintains its own context and message history
-- **Efficient resource use**: One agent can handle your entire repository's requests
+The action uses persistent conversations to maintain context across interactions.
 
-This is different from the previous agent-per-issue model, which required creating a new agent for each context.
+### Issue Conversations
+
+Each issue gets its own conversation, labeled as `owner/repo/issue-N`. When you mention `@letta-code` multiple times in the same issue, the agent remembers the full context.
+
+### PR Conversations
+
+PRs can either:
+- **Start a new conversation** if the PR doesn't reference an issue
+- **Continue an issue's conversation** if the PR references an issue (via "Fixes #N", "Closes #N", etc.)
+
+This means when you create a PR that fixes an issue, the agent already has the full context from the issue discussion.
+
+### Starting Fresh
+
+To force a new conversation, use: `@letta-code [--new] start fresh`
+
+This creates a new conversation while keeping the same agent (preserving its memory and learned preferences).
+
+## Configuration
+
+| Input                     | Description                                                | Default       |
+| ------------------------- | ---------------------------------------------------------- | ------------- |
+| `letta_api_key`           | Your Letta API key                                         | Required      |
+| `github_token`            | GitHub token for API access                                | Required      |
+| `agent_id`                | Specific agent ID to use (auto-discovers if not set)       | None          |
+| `model`                   | Model to use (`opus`, `sonnet-4.5`, `haiku`, `gpt-4.1`)    | `opus`        |
+| `prompt`                  | Auto-trigger with this prompt (for automated workflows)    | None          |
+| `trigger_phrase`          | Phrase that activates the agent                            | `@letta-code` |
+| `label_trigger`           | Label that triggers the action                             | `letta-code`  |
+| `assignee_trigger`        | Username that triggers when assigned                       | None          |
+| `path_to_letta_executable`| Path to a custom Letta Code CLI                            | None          |
+| `allowed_bots`            | Comma-separated bot usernames allowed to trigger (or `*`)  | None          |
+| `allowed_non_write_users` | Users allowed without write permissions (use with caution) | None          |
+
+### Using a Specific Agent
+
+To use the same agent across all issues and PRs:
+
+```yaml
+- uses: letta-ai/letta-code-action@v0
+  with:
+    letta_api_key: ${{ secrets.LETTA_API_KEY }}
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    agent_id: agent-586a9276-1e95-41f8-aaa4-0fb224398a01
+```
+
+This gives you:
+- **Shared memory**: The agent learns across all repository interactions
+- **Consistent behavior**: Same configuration and preferences everywhere
+- **Centralized management**: Update the agent once, all workflows use it
+
+### Using the Latest CLI
+
+To ensure you're using the latest Letta Code CLI:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+
+  - name: Install latest Letta Code
+    id: letta-bin
+    run: |
+      npm install -g @letta-ai/letta-code@latest
+      echo "path=$(command -v letta)" >> "$GITHUB_OUTPUT"
+
+  - uses: letta-ai/letta-code-action@v0
+    with:
+      letta_api_key: ${{ secrets.LETTA_API_KEY }}
+      github_token: ${{ secrets.GITHUB_TOKEN }}
+      path_to_letta_executable: ${{ steps.letta-bin.outputs.path }}
+```
 
 ## Triggers
-
-The action only runs when explicitly triggered. There are several ways to trigger it:
 
 | Trigger      | How it works                                                              |
 | ------------ | ------------------------------------------------------------------------- |
 | **Mention**  | Include `@letta-code` in a comment, issue body, or PR body                |
-| **Label**    | Add the `letta-code` label to an issue (configurable via `label_trigger`) |
+| **Label**    | Add the `letta-code` label to an issue or PR                              |
 | **Assignee** | Assign a specific user to an issue (configure via `assignee_trigger`)     |
-| **Prompt**   | Set the `prompt` input for automated workflows (see below)                |
+| **Prompt**   | Set the `prompt` input for automated workflows                            |
 
-**Important:** Replying to a comment without `@letta-code` will _not_ trigger the action. Each interaction requires an explicit trigger.
+Replying to a comment without `@letta-code` will _not_ trigger the action.
 
-### Automated Mode
+### Automated Workflows
 
-For workflows that should run automatically (e.g., auto-review every PR), use the `prompt` input:
+For workflows that run automatically (e.g., auto-review every PR):
 
 ```yaml
 on:
@@ -135,99 +210,25 @@ jobs:
           prompt: "Review this PR for bugs and security issues"
 ```
 
-## Conversation Persistence
-
-The conversation ID (and agent ID) is stored in a hidden HTML comment in the tracking comment. On follow-up mentions in the same issue/PR, the action finds this metadata and resumes the same conversation, preserving the full context.
-
-To force a new conversation, use the bracket syntax: `@letta-code [--new] start fresh`
-
-This creates a new conversation thread while still using the same underlying agent (preserving its memory and learned preferences).
-
-## Configuration
-
-| Input                     | Description                                                | Default       |
-| ------------------------- | ---------------------------------------------------------- | ------------- |
-| `letta_api_key`           | Your Letta API key                                         | Required      |
-| `github_token`            | GitHub token for API access                                | Required      |
-| `agent_id`                | Specific agent ID to use (auto-discovers if not set)       | None          |
-| `prompt`                  | Auto-trigger with this prompt (for automated workflows)    | None          |
-| `trigger_phrase`          | Phrase that activates the agent                            | `@letta-code` |
-| `model`                   | Model to use (`opus`, `sonnet-4.5`, `haiku`, `gpt-4.1`)    | `opus`        |
-| `assignee_trigger`        | Username that triggers when assigned (e.g., `letta-bot`)   | None          |
-| `label_trigger`           | Label that triggers the action                             | `letta-code`  |
-| `allowed_bots`            | Comma-separated bot usernames allowed to trigger (or `*`)  | None          |
-| `allowed_non_write_users` | Users allowed without write permissions (use with caution) | None          |
-
-### Using a Specific Agent
-
-To use the same agent across all issues and PRs in your repository, configure the `agent_id` input:
-
-```yaml
-- uses: letta-ai/letta-code-action@v0
-  with:
-    letta_api_key: ${{ secrets.LETTA_API_KEY }}
-    github_token: ${{ secrets.GITHUB_TOKEN }}
-    agent_id: agent-586a9276-1e95-41f8-aaa4-0fb224398a01
-```
-
-This is useful when you want:
-- **Shared memory**: The agent learns and remembers context across all repository interactions
-- **Consistent behavior**: Same agent configuration and learned preferences everywhere
-- **Centralized management**: Update the agent once and all workflows use the updated version
-
-If not specified, the action will auto-discover an existing agent from previous comments or create a new one.
-
 ## Bracket Syntax
 
-Pass arguments to the Letta CLI directly from your comment:
+Pass arguments directly from your comment:
 
 ```
-@letta-code [--model haiku] quick question about this code
-@letta-code [--new] start with a fresh conversation
-@letta-code [--new --model sonnet-4.5] new conversation with a specific model
+@letta-code [--agent agent-xxx] use a specific agent
+@letta-code [--new] start a fresh conversation
+@letta-code [--agent agent-xxx --new] new conversation on a specific agent
 ```
-
-Multiple flags can be combined in a single bracket. The brackets are parsed and removed from the prompt before it reaches the agent.
-
-> **Note**: `--new` creates a new conversation on the existing agent, preserving the agent's memory and learned preferences while starting a fresh context.
-
-## Examples
-
-**Ask a question:**
-
-```
-@letta-code what does the `processPayment` function do?
-```
-
-**Request implementation:**
-
-```
-@letta-code add input validation to the signup form. Check for valid email format and password length >= 8.
-```
-
-**Code review:**
-
-```
-@letta-code review this PR for potential security issues
-```
-
-**Continue a conversation:**
-
-```
-@letta-code actually, also add a confirm password field
-```
-
-(Uses the same agent from the previous mention, so it remembers the context)
 
 ## CLI Companion
 
-You can continue chatting with the same conversation locally using [Letta Code](https://github.com/letta-ai/letta-code):
+Continue the conversation locally using [Letta Code](https://github.com/letta-ai/letta-code):
 
 ```bash
 # Install
 npm install -g @letta-ai/letta-code
 
-# Resume the exact conversation from GitHub
+# Resume the conversation from GitHub
 letta --conv conv-xxxxx
 
 # Or start a new conversation with the same agent
@@ -236,7 +237,26 @@ letta --agent agent-xxxxx --new
 
 The conversation ID and agent ID are shown in every GitHub comment footer.
 
-## What Can It Do?
+## Custom Bot Identity
+
+To have comments appear as `your-app[bot]` instead of `github-actions[bot]`:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - name: Generate GitHub App token
+    id: app-token
+    uses: actions/create-github-app-token@v1
+    with:
+      app-id: ${{ secrets.APP_ID }}
+      private-key: ${{ secrets.APP_PRIVATE_KEY }}
+  - uses: letta-ai/letta-code-action@v0
+    with:
+      letta_api_key: ${{ secrets.LETTA_API_KEY }}
+      github_token: ${{ steps.app-token.outputs.token }}
+```
+
+## Capabilities
 
 **What it can do:**
 - Read and search files in your repository
@@ -246,21 +266,15 @@ The conversation ID and agent ID are shown in every GitHub comment footer.
 - Create pull requests
 - Update its tracking comment with progress
 
-## What Can't It Do?
-
+**What it can't do:**
 - Approve PRs (security restriction)
-- Modify workflow files (GitHub doesn't allow this)
+- Modify workflow files (GitHub restriction)
 
 ## Security
 
-**By default, only repository collaborators with write access can trigger the action.** This prevents random users on public repos from consuming your API credits.
+By default, only repository collaborators with write access can trigger the action. This prevents unauthorized users from consuming your API credits.
 
-| Input                     | Description                                                                     | Default |
-| ------------------------- | ------------------------------------------------------------------------------- | ------- |
-| `allowed_bots`            | Comma-separated bot usernames (or `*` for all) that can trigger the action      | None    |
-| `allowed_non_write_users` | Comma-separated usernames to allow without write permissions (use with caution) | None    |
-
-The action checks permissions via the GitHub API before running. If a user without write access tries to trigger `@letta-code`, the action will fail with "Actor does not have write permissions to the repository".
+Use `allowed_bots` for bot users or `allowed_non_write_users` to allow specific usernames without write permissions (use with caution).
 
 ## Troubleshooting
 
@@ -269,10 +283,8 @@ The action checks permissions via the GitHub API before running. If a user witho
 - Verify the workflow has the required permissions
 - Look at the Actions tab for error logs
 
-**Wrong agent resumed?**
-
-- The agent ID is determined by metadata in previous comments
-- Use `@letta-code [--new]` to force a fresh agent
+**Wrong conversation resumed?**
+- Use `@letta-code [--new]` to start a fresh conversation
 
 **Want to see what the agent is doing?**
 - Click "View job run" in the comment footer
