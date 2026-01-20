@@ -94,6 +94,10 @@ inputs:
     description: "Model to use for the Letta agent (e.g., opus, sonnet-4.5, haiku, gpt-4.1)"
     required: false
     default: "opus"
+  agent_id:
+    description: "Specific Letta agent ID to use. If not provided, the action will find or create an agent automatically."
+    required: false
+    default: ""
 
 outputs:
   execution_file:
@@ -161,6 +165,7 @@ runs:
         TRACK_PROGRESS: ${{ inputs.track_progress }}
         ADDITIONAL_PERMISSIONS: ${{ inputs.additional_permissions }}
         LETTA_ARGS: ${{ inputs.letta_args }}
+        AGENT_ID: ${{ inputs.agent_id }}
         ALL_INPUTS: ${{ toJson(inputs) }}
 
     - name: Install Base Action Dependencies
