@@ -11,6 +11,7 @@
 
 export interface LettaMetadata {
   agentId: string;
+  conversationId?: string;
   model?: string;
   created?: string;
 }
@@ -23,6 +24,10 @@ const METADATA_END = "-->";
  */
 export function formatMetadata(metadata: LettaMetadata): string {
   const lines = [`agent_id: ${metadata.agentId}`];
+
+  if (metadata.conversationId) {
+    lines.push(`conversation_id: ${metadata.conversationId}`);
+  }
 
   if (metadata.model) {
     lines.push(`model: ${metadata.model}`);
@@ -70,6 +75,9 @@ export function parseMetadata(commentBody: string): LettaMetadata | null {
     switch (key) {
       case "agent_id":
         metadata.agentId = value;
+        break;
+      case "conversation_id":
+        metadata.conversationId = value;
         break;
       case "model":
         metadata.model = value;

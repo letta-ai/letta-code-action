@@ -18,6 +18,7 @@ export type CommentUpdateInput = {
   triggerUsername?: string;
   errorDetails?: string;
   agentId?: string;
+  conversationId?: string;
   model?: string;
 };
 
@@ -81,6 +82,7 @@ export function updateCommentBody(input: CommentUpdateInput): string {
     triggerUsername,
     errorDetails,
     agentId,
+    conversationId,
     model,
   } = input;
 
@@ -234,18 +236,27 @@ export function updateCommentBody(input: CommentUpdateInput): string {
     // Build visible footer
     const adeUrl = `https://app.letta.com/agents/${agentId}`;
     let footer = `\n\n---\n🤖 **Agent:** [\`${agentId}\`](${adeUrl})`;
+    if (conversationId) {
+      footer += ` • **Conversation:** \`${conversationId}\``;
+    }
     if (model) {
       footer += ` • **Model:** ${model}`;
     }
     footer += `\n[View in ADE](${adeUrl}) • [View job run](${jobUrl})`;
-    footer += `\n💻 Chat with this agent in your terminal using [Letta Code](https://github.com/letta-ai/letta-code): \`letta --agent ${agentId}\``;
+
+    // CLI command: use --conv if conversation_id available, otherwise --agent
+    const cliCommand = conversationId
+      ? `letta --conv ${conversationId}`
+      : `letta --agent ${agentId}`;
+    footer += `\n💻 Chat with this agent in your terminal using [Letta Code](https://github.com/letta-ai/letta-code): \`${cliCommand}\``;
 
     // Append visible footer
     newBody = newBody.trim() + footer;
 
-    // Append hidden metadata for persistence
+    // Append hidden metadata for persistence (includes conversation_id for resumption)
     const metadata = formatMetadata({
       agentId,
+      conversationId,
       model,
     });
     newBody = newBody + "\n\n" + metadata;

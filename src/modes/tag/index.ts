@@ -74,21 +74,65 @@ export const tagMode: Mode = {
     // Check if actor is human
     await checkHumanActor(octokit.rest, context);
 
+    // Extract PR body if this is a PR (for linked issue search)
+    let prBody: string | undefined;
+    if (context.isPR && context.payload) {
+      if ("pull_request" in context.payload && context.payload.pull_request) {
+        prBody = (context.payload.pull_request as { body?: string }).body || "";
+      } else if ("issue" in context.payload && context.payload.issue) {
+        // For issue_comment on a PR, the issue object has the body
+        prBody = (context.payload.issue as { body?: string }).body || "";
+      }
+    }
+
     // Check for existing Letta agent in this issue/PR
+    // Also searches linked issues if this is a PR (e.g., "Fixes #123")
     const existingAgent = await findExistingAgent(
       octokit.rest,
       context.repository.owner,
       context.repository.repo,
       context.entityNumber,
+      {
+        isPR: context.isPR,
+        prBody,
+      },
     );
 
     if (existingAgent) {
-      console.log(`Resuming existing agent: ${existingAgent.agentId}`);
       core.setOutput("agent_id", existingAgent.agentId);
-      core.setOutput("is_followup", "true");
+
+      if (existingAgent.conversationId) {
+        // Resume existing conversation
+        const linkedMsg = existingAgent.linkedFromIssue
+          ? ` (linked from issue #${existingAgent.linkedFromIssue})`
+          : "";
+        console.log(
+          `Resuming existing conversation: ${existingAgent.conversationId} (agent: ${existingAgent.agentId})${linkedMsg}`,
+        );
+        core.setOutput("conversation_id", existingAgent.conversationId);
+        core.setOutput("is_followup", "true");
+        core.setOutput("create_new_conversation", "false");
+
+        if (existingAgent.linkedFromIssue) {
+          core.setOutput(
+            "linked_from_issue",
+            existingAgent.linkedFromIssue.toString(),
+          );
+        }
+      } else {
+        // Found agent but no conversation - create new conversation on existing agent
+        console.log(
+          `Found existing agent: ${existingAgent.agentId}, will create new conversation`,
+        );
+        core.setOutput("is_followup", "true");
+        core.setOutput("create_new_conversation", "true");
+      }
     } else {
-      console.log("No existing agent found, will create new one");
+      console.log(
+        "No existing agent found, will create new agent and conversation",
+      );
       core.setOutput("is_followup", "false");
+      core.setOutput("create_new_conversation", "false");
     }
 
     // Create initial tracking comment

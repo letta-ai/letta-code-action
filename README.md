@@ -79,16 +79,27 @@ steps:
 When you mention `@letta-code`, the action:
 
 1. Creates a tracking comment showing the agent is working
-2. Resumes the same agent if one was used before on this issue/PR (via metadata in comments)
+2. Resumes the same conversation if one was used before on this issue/PR (via metadata in comments)
 3. Runs the agent with full access to read files, run commands, and make commits
 4. Updates the comment with results and a link to view the agent in the [ADE](https://app.letta.com)
 
 Each comment includes a footer with:
 
 - Agent ID (click to open in Letta's Agent Development Environment)
+- Conversation ID (for concurrent task handling)
 - Model used
 - Link to the job run
-- Command to continue chatting in your terminal: `letta --agent <id>`
+- Command to continue chatting in your terminal: `letta --conv <conv-id>`
+
+### Concurrency with Conversations
+
+The action uses Letta's **Conversations API** to enable concurrent task handling. Each issue or PR gets its own conversation thread, which means:
+
+- **Same agent, parallel tasks**: Multiple PRs/issues can use the same agent simultaneously without interference
+- **Context isolation**: Each conversation maintains its own context and message history
+- **Efficient resource use**: One agent can handle your entire repository's requests
+
+This is different from the previous agent-per-issue model, which required creating a new agent for each context.
 
 ## Triggers
 
@@ -124,11 +135,13 @@ jobs:
           prompt: "Review this PR for bugs and security issues"
 ```
 
-## Agent Persistence
+## Conversation Persistence
 
-The agent ID is stored in a hidden HTML comment in the tracking comment. On follow-up mentions, the action finds this metadata and resumes the same agent, preserving conversation history and memory.
+The conversation ID (and agent ID) is stored in a hidden HTML comment in the tracking comment. On follow-up mentions in the same issue/PR, the action finds this metadata and resumes the same conversation, preserving the full context.
 
-To force a new agent, use the bracket syntax: `@letta-code [--new] start fresh`
+To force a new conversation, use the bracket syntax: `@letta-code [--new] start fresh`
+
+This creates a new conversation thread while still using the same underlying agent (preserving its memory and learned preferences).
 
 ## Configuration
 
@@ -150,11 +163,13 @@ Pass arguments to the Letta CLI directly from your comment:
 
 ```
 @letta-code [--model haiku] quick question about this code
-@letta-code [--new] start with a fresh agent
-@letta-code [--new --model sonnet-4.5] new agent with a specific model
+@letta-code [--new] start with a fresh conversation
+@letta-code [--new --model sonnet-4.5] new conversation with a specific model
 ```
 
 Multiple flags can be combined in a single bracket. The brackets are parsed and removed from the prompt before it reaches the agent.
+
+> **Note**: `--new` creates a new conversation on the existing agent, preserving the agent's memory and learned preferences while starting a fresh context.
 
 ## Examples
 
@@ -186,17 +201,20 @@ Multiple flags can be combined in a single bracket. The brackets are parsed and 
 
 ## CLI Companion
 
-You can continue chatting with the same agent locally using [Letta Code](https://github.com/letta-ai/letta-code):
+You can continue chatting with the same conversation locally using [Letta Code](https://github.com/letta-ai/letta-code):
 
 ```bash
 # Install
 npm install -g @letta-ai/letta-code
 
-# Resume the agent from GitHub
-letta --agent agent-xxxxx
+# Resume the exact conversation from GitHub
+letta --conv conv-xxxxx
+
+# Or start a new conversation with the same agent
+letta --agent agent-xxxxx --new
 ```
 
-The agent ID is shown in every GitHub comment footer.
+The conversation ID and agent ID are shown in every GitHub comment footer.
 
 ## What Can It Do?
 

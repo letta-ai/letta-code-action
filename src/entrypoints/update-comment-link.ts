@@ -201,8 +201,9 @@ async function run() {
       }
     }
 
-    // Get agent ID from the run output or environment
+    // Get agent ID and conversation ID from the run output or environment
     const agentId = process.env.AGENT_ID || "";
+    const conversationId = process.env.CONVERSATION_ID || "";
     const model = process.env.LETTA_MODEL || "";
 
     // Prepare input for updateCommentBody function
@@ -217,6 +218,7 @@ async function run() {
       triggerUsername,
       errorDetails,
       agentId,
+      conversationId,
       model,
     };
 

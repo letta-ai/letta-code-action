@@ -5,6 +5,11 @@ import { unlink, writeFile, stat } from "fs/promises";
 import { createWriteStream } from "fs";
 import { spawn } from "child_process";
 import { parse as parseShellArgs } from "shell-quote";
+import {
+  updateConversationSummary,
+  buildConversationSummary,
+  getLatestConversation,
+} from "../letta/client";
 
 const execAsync = promisify(exec);
 
@@ -19,7 +24,11 @@ const ADE_BASE_URL = "https://app.letta.com/agents";
 /**
  * Update the GitHub comment with agent info when we get the init event
  */
-async function updateCommentWithAgentInfo(agentId: string, model: string) {
+async function updateCommentWithAgentInfo(
+  agentId: string,
+  model: string,
+  conversationId?: string,
+) {
   const commentId = process.env.LETTA_COMMENT_ID;
   const repo = process.env.GITHUB_REPOSITORY;
   const runId = process.env.GITHUB_RUN_ID;
@@ -35,18 +44,25 @@ async function updateCommentWithAgentInfo(agentId: string, model: string) {
   const adeLink = `${ADE_BASE_URL}/${agentId}`;
   const jobLink = `${serverUrl}/${repo}/actions/runs/${runId}`;
 
+  // Build CLI command - use --conv if conversation_id available, otherwise --agent
+  const cliCommand = conversationId
+    ? `letta --conv ${conversationId}`
+    : `letta --agent ${agentId}`;
+
   const body = `Letta Code is working… <img src="https://github.com/user-attachments/assets/05be199b-c834-407f-8371-6f4b91435b71" width="14px" height="14px" style="vertical-align: middle; margin-left: 4px;" />
 
 ---
-🤖 **Agent:** [\`${agentId}\`](${adeLink}) • **Model:** ${model}
+🤖 **Agent:** [\`${agentId}\`](${adeLink})${conversationId ? ` • **Conversation:** \`${conversationId}\`` : ""} • **Model:** ${model}
 [View in ADE](${adeLink}) • [View job run](${jobLink})
-💻 Chat with this agent in your terminal using [Letta Code](https://github.com/letta-ai/letta-code): \`letta --agent ${agentId}\``;
+💻 Chat with this agent in your terminal using [Letta Code](https://github.com/letta-ai/letta-code): \`${cliCommand}\``;
 
   try {
     await execAsync(
       `gh api /repos/${repo}/issues/comments/${commentId} -X PATCH -f body='${body.replace(/'/g, "'\\''")}'`,
     );
-    console.log(`Updated comment with agent info: ${agentId}`);
+    console.log(
+      `Updated comment with agent info: ${agentId}${conversationId ? `, conversation: ${conversationId}` : ""}`,
+    );
   } catch (error) {
     console.error("Failed to update comment with agent info:", error);
     // Don't fail the run if comment update fails
@@ -106,6 +122,8 @@ export type LettaOptions = {
   lettaArgs?: string;
   model?: string;
   agentId?: string;
+  conversationId?: string;
+  createNewConversation?: boolean;
   pathToLettaExecutable?: string;
   showFullOutput?: string;
 };
@@ -121,7 +139,7 @@ export function prepareRunConfig(
   options: LettaOptions,
 ): PreparedConfig {
   // Build Letta CLI arguments:
-  // 1. Agent flag if resuming
+  // 1. Conversation/Agent flags for resumption
   // 2. Model flag if specified
   // 3. Prompt flag
   // 4. User's custom args
@@ -129,8 +147,15 @@ export function prepareRunConfig(
 
   const lettaArgs: string[] = [];
 
-  // Resume specific agent if ID provided
-  if (options.agentId) {
+  // Handle conversation/agent resumption:
+  // - If conversationId provided: resume that specific conversation
+  // - If agentId + createNewConversation: create new conversation on existing agent
+  // - If agentId only: resume agent (backward compatibility)
+  if (options.conversationId) {
+    lettaArgs.push("--conv", options.conversationId);
+  } else if (options.agentId && options.createNewConversation) {
+    lettaArgs.push("--agent", options.agentId, "--new");
+  } else if (options.agentId) {
     lettaArgs.push("--agent", options.agentId);
   }
 
@@ -254,6 +279,7 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
   // Capture output for parsing execution metrics
   let output = "";
   let agentId: string | null = null;
+  let conversationId: string | null = null;
   let modelHandle: string | null = null;
 
   lettaProcess.stdout.on("data", (data) => {
@@ -267,9 +293,12 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
       try {
         const parsed = JSON.parse(line);
 
-        // Capture agent_id and model from init or result events
+        // Capture agent_id, conversation_id, and model from init or result events
         if (parsed.agent_id) {
           agentId = parsed.agent_id;
+        }
+        if (parsed.conversation_id) {
+          conversationId = parsed.conversation_id;
         }
         if (parsed.model) {
           modelHandle = parsed.model;
@@ -281,10 +310,39 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
           updateCommentWithAgentInfo(
             parsed.agent_id,
             parsed.model || "unknown",
+            parsed.conversation_id,
           );
+
+          // Label the conversation with GitHub context (PR/Issue info)
+          if (parsed.conversation_id) {
+            const repo = process.env.GITHUB_REPOSITORY || "";
+            const prNumber = process.env.GITHUB_PR_NUMBER;
+            const issueNumber = process.env.GITHUB_ISSUE_NUMBER;
+            const entityTitle = process.env.GITHUB_ENTITY_TITLE;
+
+            if (prNumber || issueNumber) {
+              const entityType = prNumber ? "PR" : "Issue";
+              const entityNum = parseInt(prNumber || issueNumber || "0");
+              const summary = buildConversationSummary(
+                entityType,
+                entityNum,
+                repo,
+                entityTitle,
+              );
+              // Fire and forget - don't block on this
+              updateConversationSummary({
+                conversationId: parsed.conversation_id,
+                summary,
+              }).catch((err) =>
+                console.error("Failed to label conversation:", err),
+              );
+            }
+          }
+
           // Write agent info to file so the agent can access it
           const agentInfo = {
             agent_id: parsed.agent_id,
+            conversation_id: parsed.conversation_id,
             model: parsed.model || "unknown",
             ade_url: `${ADE_BASE_URL}/${parsed.agent_id}`,
           };
@@ -381,10 +439,27 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
     core.setOutput("conclusion", "success");
     core.setOutput("execution_file", EXECUTION_FILE);
 
-    // Output agent_id and model if captured
+    // Output agent_id, conversation_id, and model if captured
     if (agentId) {
       console.log(`Agent ID: ${agentId}`);
       core.setOutput("agent_id", agentId);
+    }
+
+    // If CLI didn't output conversation_id, fetch it from the API
+    if (!conversationId && agentId) {
+      console.log(
+        "Conversation ID not in CLI output, fetching from API...",
+      );
+      try {
+        conversationId = await getLatestConversation(agentId);
+      } catch (e) {
+        console.warn("Failed to fetch conversation ID from API:", e);
+      }
+    }
+
+    if (conversationId) {
+      console.log(`Conversation ID: ${conversationId}`);
+      core.setOutput("conversation_id", conversationId);
     }
     if (modelHandle) {
       console.log(`Model: ${modelHandle}`);
@@ -407,9 +482,21 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
       }
     }
 
-    // Output agent_id and model even on failure (for debugging)
+    // Output agent_id, conversation_id, and model even on failure (for debugging)
     if (agentId) {
       core.setOutput("agent_id", agentId);
+
+      // Try to fetch conversation_id if not available
+      if (!conversationId) {
+        try {
+          conversationId = await getLatestConversation(agentId);
+        } catch (e) {
+          // Ignore errors on failure path
+        }
+      }
+    }
+    if (conversationId) {
+      core.setOutput("conversation_id", conversationId);
     }
     if (modelHandle) {
       core.setOutput("model", modelHandle);
