@@ -151,12 +151,15 @@ export function prepareRunConfig(
   // - If conversationId provided: resume that specific conversation
   // - If agentId + createNewConversation: create new conversation on existing agent
   // - If agentId only: resume agent (backward compatibility)
+  // - If createNewConversation only: create new agent with new conversation
   if (options.conversationId) {
     lettaArgs.push("--conv", options.conversationId);
   } else if (options.agentId && options.createNewConversation) {
     lettaArgs.push("--agent", options.agentId, "--new");
   } else if (options.agentId) {
     lettaArgs.push("--agent", options.agentId);
+  } else if (options.createNewConversation) {
+    lettaArgs.push("--new");
   }
 
   // Model selection
