@@ -39,7 +39,10 @@ jobs:
         with:
           letta_api_key: ${{ secrets.LETTA_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          agent_id: ${{ vars.LETTA_AGENT_ID }}
 ```
+
+> **Note:** Store your agent ID as a [repository variable](https://docs.github.com/en/actions/learn-github-actions/variables) at Settings → Secrets and variables → Actions → Variables.
 
 That's it. Now mention `@letta-code` in any issue or PR comment.
 
