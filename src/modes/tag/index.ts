@@ -132,7 +132,7 @@ export const tagMode: Mode = {
         "No existing agent found, will create new agent and conversation",
       );
       core.setOutput("is_followup", "false");
-      core.setOutput("create_new_conversation", "false");
+      core.setOutput("create_new_conversation", "true");
     }
 
     // Create initial tracking comment
