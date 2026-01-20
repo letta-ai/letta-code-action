@@ -234,7 +234,10 @@ export function updateCommentBody(input: CommentUpdateInput): string {
     );
 
     // Build visible footer
-    const adeUrl = `https://app.letta.com/agents/${agentId}`;
+    const adeBaseUrl = `https://app.letta.com/agents/${agentId}`;
+    const adeUrl = conversationId
+      ? `${adeBaseUrl}?conversation=${conversationId}`
+      : adeBaseUrl;
     let footer = `\n\n---\n🤖 **Agent:** [\`${agentId}\`](${adeUrl})`;
     if (conversationId) {
       footer += ` • **Conversation:** \`${conversationId}\``;

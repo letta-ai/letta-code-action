@@ -41,7 +41,10 @@ async function updateCommentWithAgentInfo(
     return;
   }
 
-  const adeLink = `${ADE_BASE_URL}/${agentId}`;
+  const adeBaseLink = `${ADE_BASE_URL}/${agentId}`;
+  const adeLink = conversationId
+    ? `${adeBaseLink}?conversation=${conversationId}`
+    : adeBaseLink;
   const jobLink = `${serverUrl}/${repo}/actions/runs/${runId}`;
 
   // Build CLI command - use --conv if conversation_id available, otherwise --agent
