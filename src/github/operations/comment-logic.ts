@@ -18,6 +18,7 @@ export type CommentUpdateInput = {
   triggerUsername?: string;
   errorDetails?: string;
   agentId?: string;
+  agentName?: string;
   conversationId?: string;
   model?: string;
 };
@@ -82,6 +83,7 @@ export function updateCommentBody(input: CommentUpdateInput): string {
     triggerUsername,
     errorDetails,
     agentId,
+    agentName,
     conversationId,
     model,
   } = input;
@@ -234,12 +236,12 @@ export function updateCommentBody(input: CommentUpdateInput): string {
     );
 
     // Build visible footer
-    // TODO: Fetch agent name from API and display instead of ID
+    const agentDisplayName = agentName || agentId;
     const adeBaseUrl = `https://app.letta.com/agents/${agentId}`;
     const adeUrl = conversationId
       ? `${adeBaseUrl}?conversation=${conversationId}`
       : adeBaseUrl;
-    let footer = `\n\n---\n🤖 **Agent:** [${agentId}](${adeUrl})`;
+    let footer = `\n\n---\n🤖 **Agent:** [${agentDisplayName}](${adeUrl})`;
     if (model) {
       footer += ` • **Model:** ${model}`;
     }

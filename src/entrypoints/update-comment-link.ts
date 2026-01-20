@@ -14,6 +14,7 @@ import {
 import { GITHUB_SERVER_URL } from "../github/api/config";
 import { checkAndCommitOrDeleteBranch } from "../github/operations/branch-cleanup";
 import { updateLettaComment } from "../github/operations/comments/update-letta-comment";
+import { getAgentInfo } from "../letta/client";
 
 async function run() {
   try {
@@ -206,6 +207,19 @@ async function run() {
     const conversationId = process.env.CONVERSATION_ID || "";
     const model = process.env.LETTA_MODEL || "";
 
+    // Fetch agent name if we have an agent ID
+    let agentName: string | undefined;
+    if (agentId) {
+      try {
+        const agentInfo = await getAgentInfo(agentId);
+        if (agentInfo?.name) {
+          agentName = agentInfo.name;
+        }
+      } catch (error) {
+        console.warn("Failed to fetch agent name:", error);
+      }
+    }
+
     // Prepare input for updateCommentBody function
     const commentInput: CommentUpdateInput = {
       currentBody,
@@ -218,6 +232,7 @@ async function run() {
       triggerUsername,
       errorDetails,
       agentId,
+      agentName,
       conversationId,
       model,
     };
