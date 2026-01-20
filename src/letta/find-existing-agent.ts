@@ -5,7 +5,7 @@
  * across multiple @letta mentions in the same issue/PR.
  *
  * Also supports cross-referencing: if this is a PR that references an issue
- * (via "Fixes #X", "Closes #X", etc.), we'll search that issue's comments too.
+ * (via "Fixes #X", "Closes #X", or any "#X" mention), we'll search that issue's comments too.
  */
 
 import type { RestEndpointMethodTypes } from "@octokit/rest";
@@ -26,32 +26,45 @@ export interface ExistingAgentInfo {
 }
 
 /**
- * Extract linked issue numbers from PR body.
- * Looks for patterns like "Fixes #123", "Closes #456", "Resolves #789", etc.
+ * Extracts linked issue numbers from PR body text.
+ *
+ * Prioritizes closing keywords (Fixes, Closes, Resolves) but also
+ * detects any #N reference as a fallback for conversation continuity.
+ *
+ * @returns Array of issue numbers, with closing-keyword issues first
  */
 export function extractLinkedIssues(body: string | null | undefined): number[] {
   if (!body) return [];
 
+  const closingIssues = new Set<number>();
+  const mentionedIssues = new Set<number>();
+
+  // First, find issues with closing keywords (highest priority)
   // Match patterns: Fixes #123, Closes #123, Resolves #123, etc.
-  // Also matches: fix #123, close #123, resolve #123 (case insensitive)
-  // And: Fixes: #123, Closes: #123 (with optional colon)
-  const patterns = [
-    /\b(?:fix(?:es|ed)?|close[sd]?|resolve[sd]?):?\s*#(\d+)/gi,
-    /\b(?:fix(?:es|ed)?|close[sd]?|resolve[sd]?):?\s+#(\d+)/gi,
-  ];
+  const closingPattern =
+    /\b(?:fix(?:es|ed)?|close[sd]?|resolve[sd]?):?\s*#(\d+)/gi;
+  let match;
+  while ((match = closingPattern.exec(body)) !== null) {
+    if (match[1]) {
+      closingIssues.add(parseInt(match[1], 10));
+    }
+  }
 
-  const issues = new Set<number>();
-
-  for (const pattern of patterns) {
-    let match;
-    while ((match = pattern.exec(body)) !== null) {
-      if (match[1]) {
-        issues.add(parseInt(match[1], 10));
+  // Then, find any other #N references (fallback for conversation linking)
+  // This catches patterns like "as requested in #123" or "see #456"
+  const mentionPattern = /#(\d+)/g;
+  while ((match = mentionPattern.exec(body)) !== null) {
+    if (match[1]) {
+      const issueNum = parseInt(match[1], 10);
+      // Only add if not already in closing issues
+      if (!closingIssues.has(issueNum)) {
+        mentionedIssues.add(issueNum);
       }
     }
   }
 
-  return Array.from(issues);
+  // Return closing issues first, then mentioned issues
+  return [...Array.from(closingIssues), ...Array.from(mentionedIssues)];
 }
 
 type OctokitIssues = {
