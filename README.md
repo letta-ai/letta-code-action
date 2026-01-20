@@ -149,6 +149,7 @@ This creates a new conversation thread while still using the same underlying age
 | ------------------------- | ---------------------------------------------------------- | ------------- |
 | `letta_api_key`           | Your Letta API key                                         | Required      |
 | `github_token`            | GitHub token for API access                                | Required      |
+| `agent_id`                | Specific agent ID to use (auto-discovers if not set)       | None          |
 | `prompt`                  | Auto-trigger with this prompt (for automated workflows)    | None          |
 | `trigger_phrase`          | Phrase that activates the agent                            | `@letta-code` |
 | `model`                   | Model to use (`opus`, `sonnet-4.5`, `haiku`, `gpt-4.1`)    | `opus`        |
@@ -156,6 +157,25 @@ This creates a new conversation thread while still using the same underlying age
 | `label_trigger`           | Label that triggers the action                             | `letta-code`  |
 | `allowed_bots`            | Comma-separated bot usernames allowed to trigger (or `*`)  | None          |
 | `allowed_non_write_users` | Users allowed without write permissions (use with caution) | None          |
+
+### Using a Specific Agent
+
+To use the same agent across all issues and PRs in your repository, configure the `agent_id` input:
+
+```yaml
+- uses: letta-ai/letta-code-action@v0
+  with:
+    letta_api_key: ${{ secrets.LETTA_API_KEY }}
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    agent_id: agent-586a9276-1e95-41f8-aaa4-0fb224398a01
+```
+
+This is useful when you want:
+- **Shared memory**: The agent learns and remembers context across all repository interactions
+- **Consistent behavior**: Same agent configuration and learned preferences everywhere
+- **Centralized management**: Update the agent once and all workflows use the updated version
+
+If not specified, the action will auto-discover an existing agent from previous comments or create a new one.
 
 ## Bracket Syntax
 
