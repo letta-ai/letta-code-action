@@ -147,7 +147,7 @@ export async function getAgentInfo(
  * @param entityNumber - The PR or issue number
  * @param repository - The repository full name (owner/repo)
  * @param title - Optional title of the PR/issue
- * @returns A formatted summary string
+ * @returns A formatted summary string like "repo-name/issue-123" or "repo-name/pr-456"
  */
 export function buildConversationSummary(
   entityType: "PR" | "Issue",
@@ -155,15 +155,7 @@ export function buildConversationSummary(
   repository: string,
   title?: string,
 ): string {
-  const prefix = `${repository} ${entityType} #${entityNumber}`;
-  if (title) {
-    // Truncate title if too long (keep summary under 200 chars)
-    const maxTitleLength = 150;
-    const truncatedTitle =
-      title.length > maxTitleLength
-        ? title.slice(0, maxTitleLength - 3) + "..."
-        : title;
-    return `${prefix}: ${truncatedTitle}`;
-  }
-  return prefix;
+  // Format: repo-name/issue-123 or repo-name/pr-456
+  const entityPrefix = entityType === "PR" ? "pr" : "issue";
+  return `${repository}/${entityPrefix}-${entityNumber}`;
 }
