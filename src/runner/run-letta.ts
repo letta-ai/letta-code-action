@@ -167,7 +167,8 @@ export function prepareRunConfig(
   // - If agentId only: resume agent (backward compatibility)
   // - If createNewConversation only: create new agent with new conversation
   if (options.conversationId) {
-    lettaArgs.push("--conv", options.conversationId);
+    // Use --conversation (not --conv alias) for compatibility with older CLI versions
+    lettaArgs.push("--conversation", options.conversationId);
   } else if (options.agentId && options.createNewConversation) {
     lettaArgs.push("--agent", options.agentId, "--new");
   } else if (options.agentId) {
