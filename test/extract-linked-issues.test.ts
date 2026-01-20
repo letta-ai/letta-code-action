@@ -70,12 +70,28 @@ Fixes #42
     expect(extractLinkedIssues("Just a regular PR description")).toEqual([]);
   });
 
-  test("should not match issue references without keywords", () => {
-    expect(extractLinkedIssues("See #123 for details")).toEqual([]);
+  test("should match issue references without closing keywords (for conversation linking)", () => {
+    // Now we match any #N reference to enable conversation continuity
+    expect(extractLinkedIssues("See #123 for details")).toEqual([123]);
+    expect(extractLinkedIssues("As requested in #456")).toEqual([456]);
   });
 
-  test("should not match partial word matches", () => {
-    // "prefix" contains "fix" but shouldn't match
-    expect(extractLinkedIssues("prefix #123")).toEqual([]);
+  test("should prioritize closing keywords over plain mentions", () => {
+    // Closing keyword issues should come first
+    const body = "Fixes #100. See also #200 for context.";
+    const result = extractLinkedIssues(body);
+    expect(result).toEqual([100, 200]);
+  });
+
+  test("should not match partial word matches for closing keywords", () => {
+    // "prefix" contains "fix" but shouldn't match as a closing keyword
+    // However, #123 should still be detected as a mention
+    expect(extractLinkedIssues("prefix #123")).toEqual([123]);
+  });
+
+  test("should deduplicate across closing and mention patterns", () => {
+    // If same issue is mentioned with closing keyword and plain mention, only include once
+    const body = "Fixes #123. More details at #123.";
+    expect(extractLinkedIssues(body)).toEqual([123]);
   });
 });
