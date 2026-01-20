@@ -93,7 +93,9 @@ export async function getLatestConversation(
     const data = (await response.json()) as Array<{ id: string }>;
     const firstConversation = data?.[0];
     if (firstConversation) {
-      console.log(`Found latest conversation for agent: ${firstConversation.id}`);
+      console.log(
+        `Found latest conversation for agent: ${firstConversation.id}`,
+      );
       return firstConversation.id;
     }
 
@@ -146,14 +148,12 @@ export async function getAgentInfo(
  * @param entityType - "PR" or "Issue"
  * @param entityNumber - The PR or issue number
  * @param repository - The repository full name (owner/repo)
- * @param title - Optional title of the PR/issue
  * @returns A formatted summary string like "repo-name/issue-123" or "repo-name/pr-456"
  */
 export function buildConversationSummary(
   entityType: "PR" | "Issue",
   entityNumber: number,
   repository: string,
-  title?: string,
 ): string {
   // Format: repo-name/issue-123 or repo-name/pr-456
   const entityPrefix = entityType === "PR" ? "pr" : "issue";

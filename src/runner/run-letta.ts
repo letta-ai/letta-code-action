@@ -27,7 +27,6 @@ const ADE_BASE_URL = "https://app.letta.com/agents";
  */
 async function updateCommentWithAgentInfo(
   agentId: string,
-  model: string,
   conversationId?: string,
 ) {
   const commentId = process.env.LETTA_COMMENT_ID;
@@ -330,11 +329,7 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
           parsed.subtype === "init" &&
           parsed.agent_id
         ) {
-          updateCommentWithAgentInfo(
-            parsed.agent_id,
-            parsed.model || "unknown",
-            parsed.conversation_id,
-          );
+          updateCommentWithAgentInfo(parsed.agent_id, parsed.conversation_id);
 
           // Label the conversation with GitHub context (PR/Issue info)
           // Only label NEW conversations - don't rename when resuming (e.g., PR continuing an issue's conversation)
@@ -470,9 +465,7 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
 
     // If CLI didn't output conversation_id, fetch it from the API
     if (!conversationId && agentId) {
-      console.log(
-        "Conversation ID not in CLI output, fetching from API...",
-      );
+      console.log("Conversation ID not in CLI output, fetching from API...");
       try {
         conversationId = await getLatestConversation(agentId);
       } catch (e) {
