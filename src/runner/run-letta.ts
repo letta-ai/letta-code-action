@@ -323,7 +323,12 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
 
         // On init event, immediately update the comment with agent info
         // and write agent info to a file the agent can read
-        if (parsed.type === "init" && parsed.agent_id) {
+        // Init event has type="system" and subtype="init"
+        if (
+          parsed.type === "system" &&
+          parsed.subtype === "init" &&
+          parsed.agent_id
+        ) {
           updateCommentWithAgentInfo(
             parsed.agent_id,
             parsed.model || "unknown",
