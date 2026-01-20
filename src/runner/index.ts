@@ -18,6 +18,10 @@ async function run() {
       lettaArgs: process.env.INPUT_LETTA_ARGS,
       model: process.env.INPUT_MODEL || process.env.LETTA_MODEL,
       agentId: process.env.INPUT_AGENT_ID || process.env.LETTA_AGENT_ID,
+      conversationId:
+        process.env.INPUT_CONVERSATION_ID || process.env.LETTA_CONVERSATION_ID,
+      createNewConversation:
+        process.env.INPUT_CREATE_NEW_CONVERSATION === "true",
       pathToLettaExecutable: process.env.INPUT_PATH_TO_LETTA_EXECUTABLE,
       showFullOutput: process.env.INPUT_SHOW_FULL_OUTPUT,
     });

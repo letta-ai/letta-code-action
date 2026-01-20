@@ -94,6 +94,10 @@ inputs:
     description: "Model to use for the Letta agent (e.g., opus, sonnet-4.5, haiku, gpt-4.1)"
     required: false
     default: "opus"
+  agent_id:
+    description: "Specific Letta agent ID to use. If not provided, the action will find or create an agent automatically."
+    required: false
+    default: ""
 
 outputs:
   execution_file:
@@ -102,6 +106,9 @@ outputs:
   agent_id:
     description: "The Letta agent ID used for this execution"
     value: ${{ steps.letta-code.outputs.agent_id }}
+  conversation_id:
+    description: "The Letta conversation ID used for this execution (enables concurrent tasks)"
+    value: ${{ steps.letta-code.outputs.conversation_id }}
   branch_name:
     description: "The branch created by Letta Code for this execution"
     value: ${{ steps.prepare.outputs.LETTA_BRANCH }}
@@ -158,6 +165,7 @@ runs:
         TRACK_PROGRESS: ${{ inputs.track_progress }}
         ADDITIONAL_PERMISSIONS: ${{ inputs.additional_permissions }}
         LETTA_ARGS: ${{ inputs.letta_args }}
+        AGENT_ID: ${{ inputs.agent_id }}
         ALL_INPUTS: ${{ toJson(inputs) }}
 
     - name: Install Base Action Dependencies
@@ -204,6 +212,8 @@ runs:
         INPUT_SHOW_FULL_OUTPUT: ${{ inputs.show_full_output }}
         INPUT_MODEL: ${{ inputs.model }}
         INPUT_AGENT_ID: ${{ steps.prepare.outputs.agent_id }}
+        INPUT_CONVERSATION_ID: ${{ steps.prepare.outputs.conversation_id }}
+        INPUT_CREATE_NEW_CONVERSATION: ${{ steps.prepare.outputs.create_new_conversation }}
 
         # GitHub configuration
         GITHUB_TOKEN: ${{ steps.prepare.outputs.GITHUB_TOKEN }}
@@ -219,6 +229,11 @@ runs:
         LETTA_ADE_URL: https://app.letta.com/agents/${{ steps.prepare.outputs.agent_id }}
         BRANCH_NAME: ${{ steps.prepare.outputs.LETTA_BRANCH }}
         BASE_BRANCH: ${{ steps.prepare.outputs.BASE_BRANCH }}
+
+        # GitHub entity context for conversation labeling
+        GITHUB_PR_NUMBER: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) || '' }}
+        GITHUB_ISSUE_NUMBER: ${{ (!github.event.issue.pull_request && github.event.issue.number) || '' }}
+        GITHUB_ENTITY_TITLE: ${{ github.event.pull_request.title || github.event.issue.title || '' }}
 
     - name: Update comment with job link
       if: steps.prepare.outputs.contains_trigger == 'true' && steps.prepare.outputs.letta_comment_id && always()
@@ -239,6 +254,7 @@ runs:
         LETTA_SUCCESS: ${{ steps.letta-code.outputs.conclusion == 'success' }}
         OUTPUT_FILE: ${{ steps.letta-code.outputs.execution_file || '' }}
         AGENT_ID: ${{ steps.letta-code.outputs.agent_id || '' }}
+        CONVERSATION_ID: ${{ steps.letta-code.outputs.conversation_id || '' }}
         LETTA_MODEL: ${{ steps.letta-code.outputs.model || inputs.model }}
         TRIGGER_USERNAME: ${{ github.event.comment.user.login || github.event.issue.user.login || github.event.pull_request.user.login || github.event.sender.login || github.triggering_actor || github.actor || '' }}
         PREPARE_SUCCESS: ${{ steps.prepare.outcome == 'success' }}
@@ -246,6 +262,7 @@ runs:
         USE_STICKY_COMMENT: ${{ inputs.use_sticky_comment }}
         USE_COMMIT_SIGNING: ${{ inputs.use_commit_signing }}
         TRACK_PROGRESS: ${{ inputs.track_progress }}
+        LETTA_API_KEY: ${{ inputs.letta_api_key }}
 
     - name: Display Letta Code Report
       if: steps.prepare.outputs.contains_trigger == 'true' && steps.letta-code.outputs.execution_file != ''

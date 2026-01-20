@@ -2,3 +2,4 @@
 node_modules
 
 **/.letta/settings.local.json
+.letta/skills-hash.json
