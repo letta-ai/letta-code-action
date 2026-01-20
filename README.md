@@ -262,6 +262,7 @@ steps:
 
 **What it can do:**
 
+**What it can do:**
 - Read and search files in your repository
 - Make edits and create new files
 - Run shell commands (git, npm, etc.)
@@ -283,7 +284,6 @@ Use `allowed_bots` for bot users or `allowed_non_write_users` to allow specific 
 ## Troubleshooting
 
 **Agent not responding?**
-
 - Check that `LETTA_API_KEY` is set in repository secrets
 - Verify the workflow has the required permissions
 - Look at the Actions tab for error logs
@@ -293,6 +293,5 @@ Use `allowed_bots` for bot users or `allowed_non_write_users` to allow specific 
 - Use `@letta-code [--new]` to start a fresh conversation
 
 **Want to see what the agent is doing?**
-
 - Click "View job run" in the comment footer
 - Enable `show_full_output: true` in your workflow for detailed logs
