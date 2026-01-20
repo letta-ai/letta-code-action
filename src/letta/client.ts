@@ -105,6 +105,42 @@ export async function getLatestConversation(
 }
 
 /**
+ * Get agent details from the Letta API.
+ */
+export async function getAgentInfo(
+  agentId: string,
+): Promise<{ id: string; name: string } | null> {
+  const apiKey = process.env.LETTA_API_KEY;
+
+  if (!apiKey) {
+    console.warn("LETTA_API_KEY not set, cannot fetch agent info");
+    return null;
+  }
+
+  const url = `${LETTA_API_BASE_URL}/v1/agents/${agentId}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`Failed to fetch agent info: ${response.status}`);
+      return null;
+    }
+
+    const data = (await response.json()) as { id: string; name: string };
+    return data;
+  } catch (error) {
+    console.error("Error fetching agent info:", error);
+    return null;
+  }
+}
+
+/**
  * Build a summary string for a conversation based on GitHub context.
  *
  * @param entityType - "PR" or "Issue"

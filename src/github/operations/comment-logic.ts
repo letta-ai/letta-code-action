@@ -234,14 +234,12 @@ export function updateCommentBody(input: CommentUpdateInput): string {
     );
 
     // Build visible footer
+    // TODO: Fetch agent name from API and display instead of ID
     const adeBaseUrl = `https://app.letta.com/agents/${agentId}`;
     const adeUrl = conversationId
       ? `${adeBaseUrl}?conversation=${conversationId}`
       : adeBaseUrl;
-    let footer = `\n\n---\n🤖 **Agent:** [\`${agentId}\`](${adeUrl})`;
-    if (conversationId) {
-      footer += ` • **Conversation:** \`${conversationId}\``;
-    }
+    let footer = `\n\n---\n🤖 **Agent:** [${agentId}](${adeUrl})`;
     if (model) {
       footer += ` • **Model:** ${model}`;
     }

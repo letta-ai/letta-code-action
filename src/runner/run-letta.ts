@@ -9,6 +9,7 @@ import {
   updateConversationSummary,
   buildConversationSummary,
   getLatestConversation,
+  getAgentInfo,
 } from "../letta/client";
 
 const execAsync = promisify(exec);
@@ -41,6 +42,17 @@ async function updateCommentWithAgentInfo(
     return;
   }
 
+  // Fetch agent name (fall back to ID if unavailable)
+  let agentDisplayName = agentId;
+  try {
+    const agentInfo = await getAgentInfo(agentId);
+    if (agentInfo?.name) {
+      agentDisplayName = agentInfo.name;
+    }
+  } catch (error) {
+    console.warn("Failed to fetch agent name, using ID:", error);
+  }
+
   const adeBaseLink = `${ADE_BASE_URL}/${agentId}`;
   const adeLink = conversationId
     ? `${adeBaseLink}?conversation=${conversationId}`
@@ -55,7 +67,7 @@ async function updateCommentWithAgentInfo(
   const body = `Letta Code is working… <img src="https://github.com/user-attachments/assets/05be199b-c834-407f-8371-6f4b91435b71" width="14px" height="14px" style="vertical-align: middle; margin-left: 4px;" />
 
 ---
-🤖 **Agent:** [\`${agentId}\`](${adeLink})${conversationId ? ` • **Conversation:** \`${conversationId}\`` : ""} • **Model:** ${model}
+🤖 **Agent:** [${agentDisplayName}](${adeLink}) • **Model:** ${model}
 [View in ADE](${adeLink}) • [View job run](${jobLink})
 💻 Chat with this agent in your terminal using [Letta Code](https://github.com/letta-ai/letta-code): \`${cliCommand}\``;
 
@@ -64,7 +76,7 @@ async function updateCommentWithAgentInfo(
       `gh api /repos/${repo}/issues/comments/${commentId} -X PATCH -f body='${body.replace(/'/g, "'\\''")}'`,
     );
     console.log(
-      `Updated comment with agent info: ${agentId}${conversationId ? `, conversation: ${conversationId}` : ""}`,
+      `Updated comment with agent info: ${agentDisplayName} (${agentId})${conversationId ? `, conversation: ${conversationId}` : ""}`,
     );
   } catch (error) {
     console.error("Failed to update comment with agent info:", error);
