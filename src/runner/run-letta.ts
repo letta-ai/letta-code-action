@@ -337,11 +337,12 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
           );
 
           // Label the conversation with GitHub context (PR/Issue info)
-          if (parsed.conversation_id) {
+          // Only label NEW conversations - don't rename when resuming (e.g., PR continuing an issue's conversation)
+          const isResumingExisting = !!process.env.INPUT_CONVERSATION_ID;
+          if (parsed.conversation_id && !isResumingExisting) {
             const repo = process.env.GITHUB_REPOSITORY || "";
             const prNumber = process.env.GITHUB_PR_NUMBER;
             const issueNumber = process.env.GITHUB_ISSUE_NUMBER;
-            const entityTitle = process.env.GITHUB_ENTITY_TITLE;
 
             if (prNumber || issueNumber) {
               const entityType = prNumber ? "PR" : "Issue";
@@ -350,7 +351,6 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
                 entityType,
                 entityNum,
                 repo,
-                entityTitle,
               );
               // Fire and forget - don't block on this
               updateConversationSummary({
