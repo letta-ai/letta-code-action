@@ -1,5 +1,5 @@
 name: "Letta Code Action"
-description: "Stateful AI coding agent for GitHub. Tag @letta-code in issues/PRs to get help with code review, bug fixes, and feature implementation. Agents persist across conversations."
+description: "Tag @letta-code in issues/PRs to get help with code review, bug fixes, and feature implementation."
 branding:
   icon: "cpu"
   color: "purple"
