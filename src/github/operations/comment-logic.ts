@@ -241,11 +241,7 @@ export function updateCommentBody(input: CommentUpdateInput): string {
     const adeUrl = conversationId
       ? `${adeBaseUrl}?conversation=${conversationId}`
       : adeBaseUrl;
-    let footer = `\n\n---\n🤖 **Agent:** [${agentDisplayName}](${adeUrl})`;
-    if (model) {
-      footer += ` • **Model:** ${model}`;
-    }
-    footer += `\n[View in ADE](${adeUrl}) • [View job run](${jobUrl})`;
+    let footer = `\n\n---\n🤖 **Agent:** [${agentDisplayName}](${adeUrl}) • [View job run](${jobUrl})`;
 
     // CLI command: use --conv if conversation_id available, otherwise --agent
     const cliCommand = conversationId
