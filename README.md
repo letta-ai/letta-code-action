@@ -13,6 +13,10 @@ A GitHub Action that brings stateful AI coding agents to your repository. Mentio
 2. Add `LETTA_API_KEY` to your repository secrets
 3. Create `.github/workflows/letta.yml`:
 
+### Using an existing agent
+
+If you already have a Letta agent (created via the [ADE](https://app.letta.com) or CLI), configure its ID:
+
 ```yaml
 name: Letta Code
 
@@ -44,7 +48,41 @@ jobs:
 
 > **Note:** Store your agent ID as a [repository variable](https://docs.github.com/en/actions/learn-github-actions/variables) at Settings → Secrets and variables → Actions → Variables.
 
-That's it. Now mention `@letta-code` in any issue or PR comment.
+### Creating a new agent
+
+If you don't have an agent yet, omit the `agent_id` and the action will create one automatically:
+
+```yaml
+name: Letta Code
+
+on:
+  issues:
+    types: [opened, labeled]
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, labeled]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  letta:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: letta-ai/letta-code-action@v0
+        with:
+          letta_api_key: ${{ secrets.LETTA_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+The agent ID will be shown in the comment footer. You can then add it to your workflow to reuse the same agent.
+
+That's it! Now mention `@letta-code` in any issue or PR comment.
 
 ## How It Works
 
