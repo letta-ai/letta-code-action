@@ -215,9 +215,9 @@ jobs:
 Pass arguments directly from your comment:
 
 ```
-@letta-code [--model haiku] quick question about this code
-@letta-code [--new] start with a fresh conversation
-@letta-code [--new --model sonnet-4.5] new conversation with a specific model
+@letta-code [--agent agent-xxx] use a specific agent
+@letta-code [--new] start a fresh conversation
+@letta-code [--agent agent-xxx --new] new conversation on a specific agent
 ```
 
 ## CLI Companion
