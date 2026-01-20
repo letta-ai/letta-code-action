@@ -113,6 +113,7 @@ Each issue gets its own conversation, labeled as `owner/repo/issue-N`. When you 
 ### PR Conversations
 
 PRs can either:
+
 - **Start a new conversation** if the PR doesn't reference an issue
 - **Continue an issue's conversation** if the PR references an issue (via "Fixes #N", "Closes #N", etc.)
 
@@ -126,19 +127,19 @@ This creates a new conversation while keeping the same agent (preserving its mem
 
 ## Configuration
 
-| Input                     | Description                                                | Default       |
-| ------------------------- | ---------------------------------------------------------- | ------------- |
-| `letta_api_key`           | Your Letta API key                                         | Required      |
-| `github_token`            | GitHub token for API access                                | Required      |
-| `agent_id`                | Specific agent ID to use (auto-discovers if not set)       | None          |
-| `model`                   | Model to use (`opus`, `sonnet-4.5`, `haiku`, `gpt-4.1`)    | `opus`        |
-| `prompt`                  | Auto-trigger with this prompt (for automated workflows)    | None          |
-| `trigger_phrase`          | Phrase that activates the agent                            | `@letta-code` |
-| `label_trigger`           | Label that triggers the action                             | `letta-code`  |
-| `assignee_trigger`        | Username that triggers when assigned                       | None          |
-| `path_to_letta_executable`| Path to a custom Letta Code CLI                            | None          |
-| `allowed_bots`            | Comma-separated bot usernames allowed to trigger (or `*`)  | None          |
-| `allowed_non_write_users` | Users allowed without write permissions (use with caution) | None          |
+| Input                      | Description                                                | Default       |
+| -------------------------- | ---------------------------------------------------------- | ------------- |
+| `letta_api_key`            | Your Letta API key                                         | Required      |
+| `github_token`             | GitHub token for API access                                | Required      |
+| `agent_id`                 | Specific agent ID to use (auto-discovers if not set)       | None          |
+| `model`                    | Model to use (`opus`, `sonnet-4.5`, `haiku`, `gpt-4.1`)    | `opus`        |
+| `prompt`                   | Auto-trigger with this prompt (for automated workflows)    | None          |
+| `trigger_phrase`           | Phrase that activates the agent                            | `@letta-code` |
+| `label_trigger`            | Label that triggers the action                             | `letta-code`  |
+| `assignee_trigger`         | Username that triggers when assigned                       | None          |
+| `path_to_letta_executable` | Path to a custom Letta Code CLI                            | None          |
+| `allowed_bots`             | Comma-separated bot usernames allowed to trigger (or `*`)  | None          |
+| `allowed_non_write_users`  | Users allowed without write permissions (use with caution) | None          |
 
 ### Using a Specific Agent
 
@@ -153,6 +154,7 @@ To use the same agent across all issues and PRs:
 ```
 
 This gives you:
+
 - **Shared memory**: The agent learns across all repository interactions
 - **Consistent behavior**: Same configuration and preferences everywhere
 - **Centralized management**: Update the agent once, all workflows use it
@@ -180,12 +182,12 @@ steps:
 
 ## Triggers
 
-| Trigger      | How it works                                                              |
-| ------------ | ------------------------------------------------------------------------- |
-| **Mention**  | Include `@letta-code` in a comment, issue body, or PR body                |
-| **Label**    | Add the `letta-code` label to an issue or PR                              |
-| **Assignee** | Assign a specific user to an issue (configure via `assignee_trigger`)     |
-| **Prompt**   | Set the `prompt` input for automated workflows                            |
+| Trigger      | How it works                                                          |
+| ------------ | --------------------------------------------------------------------- |
+| **Mention**  | Include `@letta-code` in a comment, issue body, or PR body            |
+| **Label**    | Add the `letta-code` label to an issue or PR                          |
+| **Assignee** | Assign a specific user to an issue (configure via `assignee_trigger`) |
+| **Prompt**   | Set the `prompt` input for automated workflows                        |
 
 Replying to a comment without `@letta-code` will _not_ trigger the action.
 
@@ -259,6 +261,7 @@ steps:
 ## Capabilities
 
 **What it can do:**
+
 - Read and search files in your repository
 - Make edits and create new files
 - Run shell commands (git, npm, etc.)
@@ -267,6 +270,7 @@ steps:
 - Update its tracking comment with progress
 
 **What it can't do:**
+
 - Approve PRs (security restriction)
 - Modify workflow files (GitHub restriction)
 
@@ -279,13 +283,16 @@ Use `allowed_bots` for bot users or `allowed_non_write_users` to allow specific 
 ## Troubleshooting
 
 **Agent not responding?**
+
 - Check that `LETTA_API_KEY` is set in repository secrets
 - Verify the workflow has the required permissions
 - Look at the Actions tab for error logs
 
 **Wrong conversation resumed?**
+
 - Use `@letta-code [--new]` to start a fresh conversation
 
 **Want to see what the agent is doing?**
+
 - Click "View job run" in the comment footer
 - Enable `show_full_output: true` in your workflow for detailed logs

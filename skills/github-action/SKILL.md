@@ -100,6 +100,7 @@ Generated with [Letta Code](https://letta.com)" \
 ```
 
 **IMPORTANT:** Always include a closing keyword (`Fixes #N`, `Closes #N`, or `Resolves #N`) in the PR body when the PR addresses an issue. This:
+
 1. Links the PR to the issue in GitHub
 2. Automatically closes the issue when the PR is merged
 3. **Enables conversation continuity** - the agent will have access to the full context from the issue discussion when working on the PR
