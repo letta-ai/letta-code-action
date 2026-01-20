@@ -257,6 +257,7 @@ runs:
         USE_STICKY_COMMENT: ${{ inputs.use_sticky_comment }}
         USE_COMMIT_SIGNING: ${{ inputs.use_commit_signing }}
         TRACK_PROGRESS: ${{ inputs.track_progress }}
+        LETTA_API_KEY: ${{ inputs.letta_api_key }}
 
     - name: Display Letta Code Report
       if: steps.prepare.outputs.contains_trigger == 'true' && steps.letta-code.outputs.execution_file != ''
