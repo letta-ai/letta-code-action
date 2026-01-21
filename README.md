@@ -1,5 +1,7 @@
 # Letta Code GitHub Action
 
+![Letta Code](https://raw.githubusercontent.com/letta-ai/letta-code-action/main/docs/letta-logo.jpg)
+
 A GitHub Action that brings stateful AI coding agents to your repository. Mention `@letta-code` in any issue or PR to get help with code questions, implementation, and reviews.
 
 > [!WARNING]
