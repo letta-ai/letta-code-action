@@ -9,6 +9,36 @@ A GitHub Action that brings stateful AI coding agents to your repository. Mentio
 >
 > Chat with our team by opening an issue/PR or joining [our Discord](https://discord.gg/letta).
 
+## Installation (full workflow example)
+
+```yaml
+name: Letta Code
+
+on:
+  issues:
+    types: [opened, labeled]
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, labeled]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  letta:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: letta-ai/letta-code-action@v0
+        with:
+          letta_api_key: ${{ secrets.LETTA_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+```
+
 ## Quick Start
 
 1. Get an API key from [app.letta.com](https://app.letta.com)
