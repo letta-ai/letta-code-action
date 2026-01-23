@@ -183,7 +183,7 @@ describe("generatePrompt", () => {
       mockTagMode,
     );
 
-    expect(prompt).toContain("You are Letta Code, an AI assistant");
+    expect(prompt).toContain("Here's the context for your current task:");
     expect(prompt).toContain("<event_type>GENERAL_COMMENT</event_type>");
     expect(prompt).toContain("<is_pr>false</is_pr>");
     expect(prompt).toContain(
@@ -251,10 +251,7 @@ describe("generatePrompt", () => {
     expect(prompt).toContain(
       "<trigger_context>new issue with '@letta-code' in body</trigger_context>",
     );
-    expect(prompt).toContain(
-      "[Create a PR](https://github.com/owner/repo/compare/main",
-    );
-    expect(prompt).toContain("The target-branch should be 'main'");
+    expect(prompt).toContain("gh pr create");
   });
 
   test("should generate prompt for issue assigned event", async () => {
@@ -284,9 +281,7 @@ describe("generatePrompt", () => {
     expect(prompt).toContain(
       "<trigger_context>issue assigned to 'letta-bot'</trigger_context>",
     );
-    expect(prompt).toContain(
-      "[Create a PR](https://github.com/owner/repo/compare/develop",
-    );
+    expect(prompt).toContain("gh pr create");
   });
 
   test("should generate prompt for issue labeled event", async () => {
@@ -316,9 +311,7 @@ describe("generatePrompt", () => {
     expect(prompt).toContain(
       "<trigger_context>issue labeled with 'letta-task'</trigger_context>",
     );
-    expect(prompt).toContain(
-      "[Create a PR](https://github.com/owner/repo/compare/main",
-    );
+    expect(prompt).toContain("gh pr create");
   });
 
   // Removed test - direct_prompt field no longer supported in v1.0
@@ -400,7 +393,7 @@ describe("generatePrompt", () => {
 
     // Agent mode: Prompt is passed through as-is
     expect(prompt).toBe("Simple prompt for reviewing PR");
-    expect(prompt).not.toContain("You are Letta Code, an AI assistant");
+    expect(prompt).not.toContain("Here's the context for your current task:");
   });
 
   test("should pass through prompt without variable substitution", async () => {
@@ -540,7 +533,7 @@ describe("generatePrompt", () => {
       mockTagMode,
     );
 
-    expect(prompt).toContain("You are Letta Code, an AI assistant");
+    expect(prompt).toContain("Here's the context for your current task:");
     expect(prompt).toContain("<event_type>ISSUE_CREATED</event_type>");
   });
 
@@ -638,9 +631,9 @@ describe("generatePrompt", () => {
     expect(prompt).toContain(
       "IMPORTANT: You are already on the correct branch (letta/issue-789-20240101-1200)",
     );
-    expect(prompt).toContain("Create a PR](https://github.com/");
+    expect(prompt).toContain("gh pr create");
     expect(prompt).toContain(
-      "If you created anything in your branch, your comment must include the PR URL",
+      "If you created anything in your branch, you must create a PR using `gh pr create`",
     );
 
     // Should NOT contain PR-specific instructions
@@ -682,9 +675,7 @@ describe("generatePrompt", () => {
     expect(prompt).toContain(
       "IMPORTANT: You are already on the correct branch (letta/issue-123-20240101-1200)",
     );
-    expect(prompt).toContain(
-      "The branch-name is the current branch: letta/issue-123-20240101-1200",
-    );
+    expect(prompt).toContain("gh pr create");
   });
 
   test("should handle closed PR with new branch", async () => {
@@ -717,12 +708,10 @@ describe("generatePrompt", () => {
     expect(prompt).toContain(
       "Create a PR](https://github.com/owner/repo/compare/main",
     );
-    expect(prompt).toContain(
-      "The branch-name is the current branch: letta/pr-456-20240101-1200",
-    );
+    expect(prompt).toContain("gh pr create");
     expect(prompt).toContain("Reference to the original PR");
     expect(prompt).toContain(
-      "If you created anything in your branch, your comment must include the PR URL",
+      "If you created anything in your branch, you must create a PR using `gh pr create`",
     );
 
     // Should NOT contain open PR instructions
@@ -793,9 +782,7 @@ describe("generatePrompt", () => {
     expect(prompt).toContain(
       "You are already on the correct branch (letta/pr-789-20240101-1230)",
     );
-    expect(prompt).toContain(
-      "Create a PR](https://github.com/owner/repo/compare/develop",
-    );
+    expect(prompt).toContain("gh pr create");
     expect(prompt).toContain("Reference to the original PR");
   });
 
@@ -826,10 +813,10 @@ describe("generatePrompt", () => {
     expect(prompt).toContain(
       "You are already on the correct branch (letta/pr-999-20240101-1400)",
     );
-    expect(prompt).toContain("Create a PR](https://github.com/");
+    expect(prompt).toContain("gh pr create");
     expect(prompt).toContain("Reference to the original PR");
     expect(prompt).toContain(
-      "If you created anything in your branch, your comment must include the PR URL",
+      "If you created anything in your branch, you must create a PR using `gh pr create`",
     );
   });
 
@@ -859,7 +846,7 @@ describe("generatePrompt", () => {
     expect(prompt).toContain(
       "You are already on the correct branch (letta/pr-555-20240101-1500)",
     );
-    expect(prompt).toContain("Create a PR](https://github.com/");
+    expect(prompt).toContain("gh pr create");
     expect(prompt).toContain("Reference to the original PR");
   });
 
