@@ -27,23 +27,29 @@ export function ensureProperlyEncodedUrl(url: string): string | null {
   try {
     // First, try to parse the URL to see if it's already properly encoded
     new URL(url);
-    if (url.includes(" ")) {
-      const [baseUrl, queryString] = url.split("?");
-      if (queryString) {
-        // Parse query parameters and re-encode them properly
-        const params = new URLSearchParams();
-        const pairs = queryString.split("&");
-        for (const pair of pairs) {
-          const [key, value = ""] = pair.split("=");
-          if (key) {
-            // Decode first in case it's partially encoded, then encode properly
+    
+    // Always re-encode query string to ensure parentheses are encoded
+    // (needed for markdown link compatibility - unencoded () breaks markdown links)
+    const [baseUrl, queryString] = url.split("?");
+    if (queryString) {
+      // Parse query parameters and re-encode them properly
+      const params = new URLSearchParams();
+      const pairs = queryString.split("&");
+      for (const pair of pairs) {
+        const [key, value = ""] = pair.split("=");
+        if (key) {
+          // Decode first in case it's partially encoded, then encode properly
+          // URLSearchParams.set() will properly encode parentheses as %28/%29
+          try {
             params.set(key, decodeURIComponent(value));
+          } catch {
+            // If decoding fails, use the value as-is
+            params.set(key, value);
           }
         }
-        return `${baseUrl}?${params.toString()}`;
       }
-      // If no query string, just encode spaces
-      return url.replace(/ /g, "%20");
+      // URLSearchParams uses + for spaces, but %20 is more common in GitHub URLs
+      return `${baseUrl}?${params.toString().replace(/\+/g, "%20")}`;
     }
     return url;
   } catch (e) {

@@ -188,13 +188,16 @@ describe("updateCommentBody", () => {
     it("handles complex PR URLs with encoded characters", () => {
       const complexUrl =
         "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix%3A%20important%20bug%20fix&body=Fixes%20%23123%0A%0A%23%23%20Description%0AThis%20PR%20fixes%20an%20important%20bug%20that%20was%20causing%20issues%20with%20the%20application.%0A%0AGenerated%20with%20%5BLetta%20Code%5D(https%3A%2F%2Fletta.com)";
+      // After re-encoding, parentheses in body param should be encoded as %28/%29
+      const expectedUrl =
+        "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix%3A%20important%20bug%20fix&body=Fixes%20%23123%0A%0A%23%23%20Description%0AThis%20PR%20fixes%20an%20important%20bug%20that%20was%20causing%20issues%20with%20the%20application.%0A%0AGenerated%20with%20%5BLetta%20Code%5D%28https%3A%2F%2Fletta.com%29";
       const input = {
         ...baseInput,
         currentBody: `Some comment with [Create a PR](${complexUrl})`,
       };
 
       const result = updateCommentBody(input);
-      expect(result).toContain(`• [Create PR ➔](${complexUrl})`);
+      expect(result).toContain(`• [Create PR ➔](${expectedUrl})`);
       // Original link should be removed from body
       expect(result).not.toContain("[Create a PR]");
     });
@@ -202,13 +205,16 @@ describe("updateCommentBody", () => {
     it("handles PR links with encoded URLs containing parentheses", () => {
       const complexUrl =
         "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix%3A%20bug%20fix&body=Generated%20with%20%5BLetta%20Code%5D(https%3A%2F%2Fletta.com)";
+      // After re-encoding, parentheses in body param should be encoded as %28/%29
+      const expectedUrl =
+        "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix%3A%20bug%20fix&body=Generated%20with%20%5BLetta%20Code%5D%28https%3A%2F%2Fletta.com%29";
       const input = {
         ...baseInput,
         currentBody: `This PR was created.\n\n[Create a PR](${complexUrl})`,
       };
 
       const result = updateCommentBody(input);
-      expect(result).toContain(`• [Create PR ➔](${complexUrl})`);
+      expect(result).toContain(`• [Create PR ➔](${expectedUrl})`);
       // Original link should be removed from body completely
       expect(result).not.toContain("[Create a PR]");
       // Body content shouldn't have stray closing parens
@@ -221,8 +227,9 @@ describe("updateCommentBody", () => {
     it("handles PR links with unencoded spaces and special characters", () => {
       const unEncodedUrl =
         "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix: update welcome message&body=Generated with [Letta Code](https://letta.com)";
+      // After encoding: spaces become %20, colons %3A, brackets %5B/%5D, parentheses %28/%29
       const expectedEncodedUrl =
-        "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix%3A+update+welcome+message&body=Generated+with+%5BLetta+Code%5D%28https%3A%2F%2Fletta.com%29";
+        "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix%3A%20update%20welcome%20message&body=Generated%20with%20%5BLetta%20Code%5D%28https%3A%2F%2Fletta.com%29";
       const input = {
         ...baseInput,
         currentBody: `This PR was created.\n\n[Create a PR](${unEncodedUrl})`,
