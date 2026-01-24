@@ -71,6 +71,44 @@ describe("prepareRunConfig", () => {
       expect(config.lettaArgs).toContain("--new");
       expect(config.lettaArgs).not.toContain("--conversation");
     });
+
+    test("user -a (short alias) in lettaArgs overrides existing conversation", () => {
+      const config = prepareRunConfig(mockPromptPath, {
+        conversationId: "conv-123",
+        lettaArgs: "-a agent-456",
+      });
+      // Should use user's agent with --new, NOT the existing conversation
+      expect(config.lettaArgs).toContain("--agent");
+      expect(config.lettaArgs).toContain("agent-456");
+      expect(config.lettaArgs).toContain("--new");
+      // Should NOT contain the existing conversation
+      expect(config.lettaArgs).not.toContain("--conversation");
+      expect(config.lettaArgs).not.toContain("conv-123");
+      // Should NOT contain -a (it gets normalized to --agent)
+      expect(config.lettaArgs).not.toContain("-a");
+    });
+
+    test("user -a overrides configured agentId", () => {
+      const config = prepareRunConfig(mockPromptPath, {
+        agentId: "agent-configured",
+        conversationId: "conv-123",
+        lettaArgs: "-a agent-user-requested",
+      });
+      expect(config.lettaArgs).toContain("agent-user-requested");
+      expect(config.lettaArgs).not.toContain("agent-configured");
+      expect(config.lettaArgs).not.toContain("conv-123");
+    });
+
+    test("user -a with --new still works", () => {
+      const config = prepareRunConfig(mockPromptPath, {
+        conversationId: "conv-123",
+        lettaArgs: "-a agent-456 --new",
+      });
+      expect(config.lettaArgs).toContain("--agent");
+      expect(config.lettaArgs).toContain("agent-456");
+      expect(config.lettaArgs).toContain("--new");
+      expect(config.lettaArgs).not.toContain("--conversation");
+    });
   });
 
   describe("user --new flag handling", () => {

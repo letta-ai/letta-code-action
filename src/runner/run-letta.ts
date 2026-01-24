@@ -174,10 +174,13 @@ export function prepareRunConfig(
       (arg): arg is string => typeof arg === "string",
     );
 
-    // Extract --agent and --new flags from custom args to handle conflicts
+    // Extract --agent/-a and --new flags from custom args to handle conflicts
     let i = 0;
     while (i < allCustomArgs.length) {
-      if (allCustomArgs[i] === "--agent" && i + 1 < allCustomArgs.length) {
+      if (
+        (allCustomArgs[i] === "--agent" || allCustomArgs[i] === "-a") &&
+        i + 1 < allCustomArgs.length
+      ) {
         userRequestedAgentId = allCustomArgs[i + 1];
         i += 2; // Skip both --agent and its value
       } else if (allCustomArgs[i] === "--new") {
