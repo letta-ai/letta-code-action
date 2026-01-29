@@ -81,7 +81,7 @@ describe("updateCommentBody", () => {
       };
 
       const result = updateCommentBody(input);
-      expect(result).toContain(`- [View job](${baseInput.jobUrl})`);
+      expect(result).toContain(`—— [View job](${baseInput.jobUrl})`);
     });
 
     it("always includes job link in header, even if present in body", () => {
@@ -92,8 +92,8 @@ describe("updateCommentBody", () => {
       };
 
       const result = updateCommentBody(input);
-      // Check it's in the links list
-      expect(result).toContain(`- [View job](${baseInput.jobUrl})`);
+      // Check it's in the header with the new format
+      expect(result).toContain(`—— [View job](${baseInput.jobUrl})`);
       // The old link in body is removed
       expect(result).not.toContain("View job run");
     });
@@ -108,7 +108,7 @@ describe("updateCommentBody", () => {
 
       const result = updateCommentBody(input);
       expect(result).toContain(
-        "- Branch: [`letta/issue-123-20240101-1200`](https://github.com/owner/repo/tree/letta/issue-123-20240101-1200)",
+        "• [`letta/issue-123-20240101-1200`](https://github.com/owner/repo/tree/letta/issue-123-20240101-1200)",
       );
     });
 
@@ -121,7 +121,7 @@ describe("updateCommentBody", () => {
 
       const result = updateCommentBody(input);
       expect(result).toContain(
-        "- Branch: [`branch-name`](https://github.com/owner/repo/tree/branch-name)",
+        "• [`branch-name`](https://github.com/owner/repo/tree/branch-name)",
       );
     });
 
@@ -135,7 +135,7 @@ describe("updateCommentBody", () => {
 
       const result = updateCommentBody(input);
       expect(result).toContain(
-        "- Branch: [`new-branch-name`](https://github.com/owner/repo/tree/new-branch-name)",
+        "• [`new-branch-name`](https://github.com/owner/repo/tree/new-branch-name)",
       );
       expect(result).not.toContain("View branch");
     });
@@ -150,7 +150,7 @@ describe("updateCommentBody", () => {
 
       const result = updateCommentBody(input);
       expect(result).toContain(
-        "- [Create PR](https://github.com/owner/repo/pr-url)",
+        "• [Create PR ➔](https://github.com/owner/repo/pr-url)",
       );
     });
 
@@ -163,7 +163,7 @@ describe("updateCommentBody", () => {
 
       const result = updateCommentBody(input);
       expect(result).toContain(
-        "- [Create PR](https://github.com/owner/repo/pr-url)",
+        "• [Create PR ➔](https://github.com/owner/repo/pr-url)",
       );
       // Original Create a PR link is removed from body
       expect(result).not.toContain("[Create a PR]");
@@ -181,20 +181,23 @@ describe("updateCommentBody", () => {
       const result = updateCommentBody(input);
       // Prefers the link found in content over the provided one
       expect(result).toContain(
-        "- [Create PR](https://github.com/owner/repo/pr-url-from-body)",
+        "• [Create PR ➔](https://github.com/owner/repo/pr-url-from-body)",
       );
     });
 
     it("handles complex PR URLs with encoded characters", () => {
       const complexUrl =
         "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix%3A%20important%20bug%20fix&body=Fixes%20%23123%0A%0A%23%23%20Description%0AThis%20PR%20fixes%20an%20important%20bug%20that%20was%20causing%20issues%20with%20the%20application.%0A%0AGenerated%20with%20%5BLetta%20Code%5D(https%3A%2F%2Fletta.com)";
+      // After re-encoding, parentheses in body param should be encoded as %28/%29
+      const expectedUrl =
+        "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix%3A%20important%20bug%20fix&body=Fixes%20%23123%0A%0A%23%23%20Description%0AThis%20PR%20fixes%20an%20important%20bug%20that%20was%20causing%20issues%20with%20the%20application.%0A%0AGenerated%20with%20%5BLetta%20Code%5D%28https%3A%2F%2Fletta.com%29";
       const input = {
         ...baseInput,
         currentBody: `Some comment with [Create a PR](${complexUrl})`,
       };
 
       const result = updateCommentBody(input);
-      expect(result).toContain(`- [Create PR](${complexUrl})`);
+      expect(result).toContain(`• [Create PR ➔](${expectedUrl})`);
       // Original link should be removed from body
       expect(result).not.toContain("[Create a PR]");
     });
@@ -202,13 +205,16 @@ describe("updateCommentBody", () => {
     it("handles PR links with encoded URLs containing parentheses", () => {
       const complexUrl =
         "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix%3A%20bug%20fix&body=Generated%20with%20%5BLetta%20Code%5D(https%3A%2F%2Fletta.com)";
+      // After re-encoding, parentheses in body param should be encoded as %28/%29
+      const expectedUrl =
+        "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix%3A%20bug%20fix&body=Generated%20with%20%5BLetta%20Code%5D%28https%3A%2F%2Fletta.com%29";
       const input = {
         ...baseInput,
         currentBody: `This PR was created.\n\n[Create a PR](${complexUrl})`,
       };
 
       const result = updateCommentBody(input);
-      expect(result).toContain(`- [Create PR](${complexUrl})`);
+      expect(result).toContain(`• [Create PR ➔](${expectedUrl})`);
       // Original link should be removed from body completely
       expect(result).not.toContain("[Create a PR]");
       // Body content shouldn't have stray closing parens
@@ -221,15 +227,16 @@ describe("updateCommentBody", () => {
     it("handles PR links with unencoded spaces and special characters", () => {
       const unEncodedUrl =
         "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix: update welcome message&body=Generated with [Letta Code](https://letta.com)";
+      // After encoding: spaces become %20, colons %3A, brackets %5B/%5D, parentheses %28/%29
       const expectedEncodedUrl =
-        "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix%3A+update+welcome+message&body=Generated+with+%5BLetta+Code%5D%28https%3A%2F%2Fletta.com%29";
+        "https://github.com/owner/repo/compare/main...feature-branch?quick_pull=1&title=fix%3A%20update%20welcome%20message&body=Generated%20with%20%5BLetta%20Code%5D%28https%3A%2F%2Fletta.com%29";
       const input = {
         ...baseInput,
         currentBody: `This PR was created.\n\n[Create a PR](${unEncodedUrl})`,
       };
 
       const result = updateCommentBody(input);
-      expect(result).toContain(`- [Create PR](${expectedEncodedUrl})`);
+      expect(result).toContain(`• [Create PR ➔](${expectedEncodedUrl})`);
       // Original link should be removed from body completely
       expect(result).not.toContain("[Create a PR]");
       // Body content should be preserved
@@ -246,7 +253,7 @@ describe("updateCommentBody", () => {
       };
 
       const result = updateCommentBody(input);
-      expect(result).toContain(`- [Create PR](${fallbackPrUrl})`);
+      expect(result).toContain(`• [Create PR ➔](${fallbackPrUrl})`);
       // Original link with invalid URL should still be in body since encoding failed
       expect(result).toContain("[Create a PR](not-a-valid-url-at-all)");
       expect(result).toContain("This PR was created.");
@@ -336,11 +343,11 @@ describe("updateCommentBody", () => {
       expect(result).toContain(
         "**Letta Code finished @trigger-user's task in 1m 5s**",
       );
-      expect(result).toContain("- [View job]");
+      expect(result).toContain("—— [View job]");
       expect(result).toContain(
-        "- Branch: [`letta-branch-123`](https://github.com/owner/repo/tree/letta-branch-123)",
+        "• [`letta-branch-123`](https://github.com/owner/repo/tree/letta-branch-123)",
       );
-      expect(result).toContain("- [Create PR]");
+      expect(result).toContain("• [Create PR ➔]");
 
       // Check order - header comes before separator with blank line
       const headerIndex = result.indexOf("**Letta Code finished");
@@ -370,9 +377,9 @@ describe("updateCommentBody", () => {
 
       const result = updateCommentBody(input);
 
-      // PR link should be moved to links list
+      // PR link should be moved to header
       expect(result).toContain(
-        "- [Create PR](https://github.com/owner/repo/pr-url-in-content)",
+        "• [Create PR ➔](https://github.com/owner/repo/pr-url-in-content)",
       );
       // Original link should be removed from body
       expect(result).not.toContain("[Create a PR]");
@@ -396,7 +403,7 @@ describe("updateCommentBody", () => {
 
       // Should include the PR link in the formatted style
       expect(result).toContain(
-        "- [Create PR](https://github.com/owner/repo/compare/main...letta/pr-456-20240101-1200)",
+        "• [Create PR ➔](https://github.com/owner/repo/compare/main...letta/pr-456-20240101-1200)",
       );
       expect(result).toContain("**Letta Code finished @jane-doe's task**");
     });
@@ -416,10 +423,10 @@ describe("updateCommentBody", () => {
 
       // Should include both links in formatted style
       expect(result).toContain(
-        "- Branch: [`letta/issue-123-20240101-1200`](https://github.com/owner/repo/tree/letta/issue-123-20240101-1200)",
+        "• [`letta/issue-123-20240101-1200`](https://github.com/owner/repo/tree/letta/issue-123-20240101-1200)",
       );
       expect(result).toContain(
-        "- [Create PR](https://github.com/owner/repo/compare/main...letta/issue-123-20240101-1200)",
+        "• [Create PR ➔](https://github.com/owner/repo/compare/main...letta/issue-123-20240101-1200)",
       );
     });
 
