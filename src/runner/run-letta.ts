@@ -152,20 +152,71 @@ export function prepareRunConfig(
   options: LettaOptions,
 ): PreparedConfig {
   // Build Letta CLI arguments:
-  // 1. Conversation/Agent flags for resumption
-  // 2. Model flag if specified
-  // 3. Prompt flag
-  // 4. User's custom args
-  // 5. BASE_ARGS (always last)
+  // 1. Parse custom args first to detect conflicts
+  // 2. Conversation/Agent flags for resumption (with conflict handling)
+  // 3. Model flag if specified
+  // 4. Prompt flag
+  // 5. Remaining user's custom args
+  // 6. BASE_ARGS (always last)
 
   const lettaArgs: string[] = [];
 
-  // Handle conversation/agent resumption:
-  // - If conversationId provided: resume that specific conversation
-  // - If agentId + createNewConversation: create new conversation on existing agent
-  // - If agentId only: resume agent (backward compatibility)
-  // - If createNewConversation only: create new agent with new conversation
-  if (options.conversationId) {
+  // Parse custom args FIRST to detect --agent conflict
+  // This handles the case where user provides [--agent <id>] in bracket syntax
+  // while an existing conversation exists
+  let customArgs: string[] = [];
+  let userRequestedAgentId: string | undefined;
+  let userRequestedNew = false;
+
+  if (options.lettaArgs?.trim()) {
+    const parsed = parseShellArgs(options.lettaArgs);
+    const allCustomArgs = parsed.filter(
+      (arg): arg is string => typeof arg === "string",
+    );
+
+    // Extract --agent/-a and --new flags from custom args to handle conflicts
+    let i = 0;
+    while (i < allCustomArgs.length) {
+      if (
+        (allCustomArgs[i] === "--agent" || allCustomArgs[i] === "-a") &&
+        i + 1 < allCustomArgs.length
+      ) {
+        userRequestedAgentId = allCustomArgs[i + 1];
+        i += 2; // Skip both --agent and its value
+      } else if (allCustomArgs[i] === "--new") {
+        userRequestedNew = true;
+        i += 1;
+      } else {
+        customArgs.push(allCustomArgs[i]!);
+        i++;
+      }
+    }
+  }
+
+  // Handle conversation/agent resumption with conflict detection:
+  // - User's --agent flag in bracket syntax takes priority over existing conversation
+  // - This allows users to explicitly switch agents mid-issue/PR
+  if (userRequestedAgentId) {
+    // User explicitly requested a specific agent via bracket syntax
+    if (options.conversationId) {
+      console.log(
+        `User requested agent ${userRequestedAgentId} via bracket syntax, ` +
+          `ignoring existing conversation ${options.conversationId}`,
+      );
+    }
+    // Always use --new when user specifies --agent to start fresh conversation
+    lettaArgs.push("--agent", userRequestedAgentId, "--new");
+  } else if (userRequestedNew) {
+    // User explicitly requested --new to start fresh
+    if (options.agentId) {
+      // Has an agent - start fresh conversation on it
+      lettaArgs.push("--agent", options.agentId, "--new");
+    } else {
+      // No agent - just use --new to create new agent
+      lettaArgs.push("--new");
+    }
+  } else if (options.conversationId) {
+    // No user override - resume existing conversation
     // Use --conversation (not --conv alias) for compatibility with older CLI versions
     lettaArgs.push("--conversation", options.conversationId);
   } else if (options.agentId && options.createNewConversation) {
@@ -188,14 +239,8 @@ export function prepareRunConfig(
   // Prompt flag
   lettaArgs.push("-p");
 
-  // Parse and add user's custom arguments
-  if (options.lettaArgs?.trim()) {
-    const parsed = parseShellArgs(options.lettaArgs);
-    const customArgs = parsed.filter(
-      (arg): arg is string => typeof arg === "string",
-    );
-    lettaArgs.push(...customArgs);
-  }
+  // Add remaining custom arguments (with --agent and --new already extracted)
+  lettaArgs.push(...customArgs);
 
   // BASE_ARGS are always appended last
   lettaArgs.push(...BASE_ARGS);
