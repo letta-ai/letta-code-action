@@ -66,8 +66,9 @@ async function updateCommentWithAgentInfo(
   const body = `Letta Code is working… <img src="https://github.com/user-attachments/assets/05be199b-c834-407f-8371-6f4b91435b71" width="14px" height="14px" style="vertical-align: middle; margin-left: 4px;" />
 
 ---
-🤖 **Agent:** [${agentDisplayName}](${adeLink}) • [View job run](${jobLink})
-💻 Chat with this agent in your terminal using [Letta Code](https://github.com/letta-ai/letta-code): \`${cliCommand}\``;
+🤖 **Agent:** [${agentDisplayName}](${adeLink})
+- [View job run](${jobLink})
+- Chat locally: \`${cliCommand}\` — [Letta Code](https://github.com/letta-ai/letta-code)`;
 
   try {
     await execAsync(
