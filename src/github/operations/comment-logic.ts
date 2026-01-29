@@ -27,7 +27,7 @@ export function ensureProperlyEncodedUrl(url: string): string | null {
   try {
     // First, try to parse the URL to see if it's already properly encoded
     new URL(url);
-    
+
     // Always re-encode query string to ensure parentheses are encoded
     // (needed for markdown link compatibility - unencoded () breaks markdown links)
     const [baseUrl, queryString] = url.split("?");
