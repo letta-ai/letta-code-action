@@ -45,6 +45,7 @@ export function buildAllowedToolsString(
   // Add Bash commands for git and gh CLI (Letta uses Skills instead of MCP)
   baseTools.push(
     "Bash(git add:*)",
+    "Bash(git clone:*)",
     "Bash(git commit:*)",
     "Bash(git push:*)",
     "Bash(git status:*)",
@@ -54,6 +55,7 @@ export function buildAllowedToolsString(
     "Bash(gh api:*)",
     "Bash(gh pr:*)",
     "Bash(gh issue:*)",
+    "Bash(gh repo clone:*)",
   );
 
   let allAllowedTools = baseTools.join(",");
