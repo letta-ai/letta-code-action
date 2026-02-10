@@ -27,23 +27,29 @@ export function ensureProperlyEncodedUrl(url: string): string | null {
   try {
     // First, try to parse the URL to see if it's already properly encoded
     new URL(url);
-    if (url.includes(" ")) {
-      const [baseUrl, queryString] = url.split("?");
-      if (queryString) {
-        // Parse query parameters and re-encode them properly
-        const params = new URLSearchParams();
-        const pairs = queryString.split("&");
-        for (const pair of pairs) {
-          const [key, value = ""] = pair.split("=");
-          if (key) {
-            // Decode first in case it's partially encoded, then encode properly
+
+    // Always re-encode query string to ensure parentheses are encoded
+    // (needed for markdown link compatibility - unencoded () breaks markdown links)
+    const [baseUrl, queryString] = url.split("?");
+    if (queryString) {
+      // Parse query parameters and re-encode them properly
+      const params = new URLSearchParams();
+      const pairs = queryString.split("&");
+      for (const pair of pairs) {
+        const [key, value = ""] = pair.split("=");
+        if (key) {
+          // Decode first in case it's partially encoded, then encode properly
+          // URLSearchParams.set() will properly encode parentheses as %28/%29
+          try {
             params.set(key, decodeURIComponent(value));
+          } catch {
+            // If decoding fails, use the value as-is
+            params.set(key, value);
           }
         }
-        return `${baseUrl}?${params.toString()}`;
       }
-      // If no query string, just encode spaces
-      return url.replace(/ /g, "%20");
+      // URLSearchParams uses + for spaces, but %20 is more common in GitHub URLs
+      return `${baseUrl}?${params.toString().replace(/\+/g, "%20")}`;
     }
     return url;
   } catch (e) {
@@ -145,9 +151,8 @@ export function updateCommentBody(input: CommentUpdateInput): string {
     header += "**";
   }
 
-  // Build links as a vertical list for better readability
-  const linkItems: string[] = [];
-  linkItems.push(`[View job](${jobUrl})`);
+  // Add links section
+  let links = ` —— [View job](${jobUrl})`;
 
   // Add branch name with link
   if (branchName || branchLink) {
@@ -180,9 +185,9 @@ export function updateCommentBody(input: CommentUpdateInput): string {
     }
 
     if (finalBranchName && branchUrl) {
-      linkItems.push(`Branch: [\`${finalBranchName}\`](${branchUrl})`);
+      links += ` • [\`${finalBranchName}\`](${branchUrl})`;
     } else if (finalBranchName) {
-      linkItems.push(`Branch: \`${finalBranchName}\``);
+      links += ` • \`${finalBranchName}\``;
     }
   }
 
@@ -190,12 +195,11 @@ export function updateCommentBody(input: CommentUpdateInput): string {
   const prUrl =
     prLinkFromContent || (prLink ? prLink.match(/\(([^)]+)\)/)?.[1] : "");
   if (prUrl) {
-    linkItems.push(`[Create PR](${prUrl})`);
+    links += ` • [Create PR ➔](${prUrl})`;
   }
 
-  // Build the new body with header and vertical links list
-  const linksSection = linkItems.map((item) => `- ${item}`).join("\n");
-  let newBody = `${header}\n\n${linksSection}`;
+  // Build the new body with blank line between header and separator
+  let newBody = `${header}${links}`;
 
   // Add error details if available
   if (actionFailed && errorDetails) {
@@ -237,21 +241,19 @@ export function updateCommentBody(input: CommentUpdateInput): string {
       "",
     );
 
-    // Build visible footer as a list
+    // Build visible footer
     const agentDisplayName = agentName || agentId;
     const adeBaseUrl = `https://app.letta.com/agents/${agentId}`;
     const adeUrl = conversationId
       ? `${adeBaseUrl}?conversation=${conversationId}`
       : adeBaseUrl;
+    let footer = `\n\n---\n🤖 **Agent:** [${agentDisplayName}](${adeUrl}) • [View job run](${jobUrl})`;
 
     // CLI command: use --conv if conversation_id available, otherwise --agent
     const cliCommand = conversationId
       ? `letta --conv ${conversationId}`
       : `letta --agent ${agentId}`;
-
-    let footer = `\n\n---\n🤖 **Agent:** [${agentDisplayName}](${adeUrl})\n`;
-    footer += `- [View job run](${jobUrl})\n`;
-    footer += `- Chat locally: \`${cliCommand}\` — [Letta Code](https://github.com/letta-ai/letta-code)`;
+    footer += `\n💻 Chat with this agent in your terminal using [Letta Code](https://github.com/letta-ai/letta-code): \`${cliCommand}\``;
 
     // Append visible footer
     newBody = newBody.trim() + footer;
