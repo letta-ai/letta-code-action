@@ -192,8 +192,15 @@ export function updateCommentBody(input: CommentUpdateInput): string {
   }
 
   // Add PR link (either from content or provided)
-  const prUrl =
-    prLinkFromContent || (prLink ? prLink.match(/\(([^)]+)\)/)?.[1] : "");
+  // prLinkFromContent is already sanitized via ensureProperlyEncodedUrl.
+  // For the prLink parameter path, use a greedy regex (.+) so we don't
+  // truncate at unencoded ) inside the URL, then run ensureProperlyEncodedUrl
+  // as a safety net (encodeURIComponent doesn't encode parentheses per spec).
+  let prUrl =
+    prLinkFromContent || (prLink ? prLink.match(/\((.+)\)$/)?.[1] : "");
+  if (prUrl && !prLinkFromContent) {
+    prUrl = ensureProperlyEncodedUrl(prUrl) || prUrl;
+  }
   if (prUrl) {
     links += ` • [Create PR ➔](${prUrl})`;
   }

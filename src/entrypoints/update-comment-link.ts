@@ -136,12 +136,20 @@ async function run() {
             (comparison.files && comparison.files.length > 0)
           ) {
             const entityType = context.isPR ? "PR" : "Issue";
+            // encodeURIComponent does NOT encode ( and ) per the ECMAScript spec
+            // (they're in the "uriMark" safe set), but unencoded parentheses in
+            // query params break markdown link syntax [text](url).
+            // We must manually encode them after encodeURIComponent.
             const prTitle = encodeURIComponent(
               `${entityType} #${context.entityNumber}: Changes from Letta`,
-            );
+            )
+              .replace(/\(/g, "%28")
+              .replace(/\)/g, "%29");
             const prBody = encodeURIComponent(
               `This PR addresses ${entityType.toLowerCase()} #${context.entityNumber}\n\nGenerated with [Letta Code](https://letta.com)`,
-            );
+            )
+              .replace(/\(/g, "%28")
+              .replace(/\)/g, "%29");
             const prUrl = `${serverUrl}/${owner}/${repo}/compare/${baseBranch}...${lettaBranch}?quick_pull=1&title=${prTitle}&body=${prBody}`;
             prLink = `\n[Create a PR](${prUrl})`;
           }

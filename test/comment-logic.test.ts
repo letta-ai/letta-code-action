@@ -430,6 +430,31 @@ describe("updateCommentBody", () => {
       );
     });
 
+    it("encodes parentheses in prLink parameter (encodeURIComponent does not encode parens)", () => {
+      // This reproduces the actual bug: encodeURIComponent("...](https://letta.com)")
+      // leaves literal ( and ) which break markdown link syntax [text](url)
+      const body = encodeURIComponent(
+        "This PR addresses issue #25\n\nGenerated with [Letta Code](https://letta.com)",
+      );
+      const prUrl = `https://github.com/owner/repo/compare/main...branch?quick_pull=1&title=Issue%20%2325%3A%20Changes%20from%20Letta&body=${body}`;
+      const input = {
+        ...baseInput,
+        currentBody: "Letta Code is working…",
+        prLink: `\n[Create a PR](${prUrl})`,
+        triggerUsername: "testuser",
+      };
+
+      const result = updateCommentBody(input);
+
+      // The URL in the final markdown must have %28/%29 for parentheses
+      expect(result).toContain("%28https%3A%2F%2Fletta.com%29");
+      // Must NOT contain literal unencoded parentheses inside the URL query params
+      expect(result).not.toContain(
+        "%5BLetta%20Code%5D(https%3A%2F%2Fletta.com)",
+      );
+      expect(result).toContain("• [Create PR ➔](");
+    });
+
     it("should not show branch name when branch doesn't exist remotely", () => {
       const input: CommentUpdateInput = {
         currentBody: "@letta-code can you help with this?",
