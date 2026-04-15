@@ -177,7 +177,7 @@ runs:
         # Install Letta Code if no custom executable is provided
         if [ -z "${{ inputs.path_to_letta_executable }}" ]; then
           echo "Installing Letta Code..."
-          npm install -g @letta-ai/letta-code
+          npm install -g @letta-ai/letta-code@latest
           echo "Letta Code installed successfully"
         else
           echo "Using custom Letta Code executable: ${{ inputs.path_to_letta_executable }}"
