@@ -117,6 +117,11 @@ export const agentMode: Mode = {
     // Just pass through any user-provided args (model overrides, etc.)
     const userLettaArgs = process.env.LETTA_ARGS || "";
 
+    if (context.inputs.agentId) {
+      core.setOutput("agent_id", context.inputs.agentId);
+      core.setOutput("create_new_conversation", "true");
+    }
+
     core.setOutput("letta_args", userLettaArgs.trim());
 
     return {

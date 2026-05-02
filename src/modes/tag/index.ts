@@ -13,8 +13,21 @@ import { createPrompt, generateDefaultPrompt } from "../../create-prompt";
 import { isEntityContext } from "../../github/context";
 import type { PreparedContext } from "../../create-prompt/types";
 import type { FetchDataResult } from "../../github/data/fetcher";
-import { findExistingAgent } from "../../letta/find-existing-agent";
+import {
+  findExistingAgent,
+  type ExistingAgentInfo,
+} from "../../letta/find-existing-agent";
 import { parseTriggerFromContext } from "../../letta/trigger-parser";
+
+export function existingConversationMatchesConfiguredAgent(
+  configuredAgentId: string,
+  existingAgent: ExistingAgentInfo | null,
+): existingAgent is ExistingAgentInfo & { conversationId: string } {
+  return Boolean(
+    existingAgent?.conversationId &&
+      existingAgent.agentId === configuredAgentId,
+  );
+}
 
 /**
  * Tag mode implementation.
@@ -105,7 +118,21 @@ export const tagMode: Mode = {
         },
       );
 
-      if (existingAgent?.conversationId) {
+      if (
+        existingAgent?.conversationId &&
+        existingAgent.agentId !== configuredAgentId
+      ) {
+        console.log(
+          `Ignoring existing conversation ${existingAgent.conversationId} because it belongs to agent ${existingAgent.agentId}, not configured agent ${configuredAgentId}`,
+        );
+      }
+
+      if (
+        existingConversationMatchesConfiguredAgent(
+          configuredAgentId,
+          existingAgent,
+        )
+      ) {
         // Resume existing conversation
         console.log(
           `Resuming existing conversation: ${existingAgent.conversationId}`,

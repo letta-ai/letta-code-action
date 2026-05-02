@@ -186,6 +186,45 @@ describe("Agent Mode", () => {
       process.env.GITHUB_REF_NAME = originalRefName;
   });
 
+  test("prepare method preserves configured agent for prompt workflows", async () => {
+    const contextWithAgent = createMockAutomationContext({
+      eventName: "workflow_dispatch",
+      inputs: {
+        prompt: "Review this PR",
+        agentId: "agent-configured",
+      },
+    });
+
+    const mockOctokit = {
+      rest: {
+        users: {
+          getAuthenticated: mock(() =>
+            Promise.resolve({
+              data: { login: "test-user", id: 12345 },
+            }),
+          ),
+          getByUsername: mock(() =>
+            Promise.resolve({
+              data: { login: "test-user", id: 12345 },
+            }),
+          ),
+        },
+      },
+    } as any;
+
+    await agentMode.prepare({
+      context: contextWithAgent,
+      octokit: mockOctokit,
+      githubToken: "test-token",
+    });
+
+    expect(setOutputSpy).toHaveBeenCalledWith("agent_id", "agent-configured");
+    expect(setOutputSpy).toHaveBeenCalledWith(
+      "create_new_conversation",
+      "true",
+    );
+  });
+
   test("prepare method creates prompt file with correct content", async () => {
     const contextWithPrompts = createMockAutomationContext({
       eventName: "workflow_dispatch",

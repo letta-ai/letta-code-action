@@ -1,5 +1,8 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { tagMode } from "../../src/modes/tag";
+import {
+  existingConversationMatchesConfiguredAgent,
+  tagMode,
+} from "../../src/modes/tag";
 import type { ParsedGitHubContext } from "../../src/github/context";
 import type { IssueCommentEvent } from "@octokit/webhooks-types";
 import { createMockContext } from "../mockContext";
@@ -88,5 +91,30 @@ describe("Tag Mode", () => {
 
   test("getDisallowedTools returns empty array", () => {
     expect(tagMode.getDisallowedTools()).toEqual([]);
+  });
+
+  test("configured agent only resumes conversations from the same agent", () => {
+    expect(
+      existingConversationMatchesConfiguredAgent("agent-configured", {
+        agentId: "agent-configured",
+        conversationId: "conv-existing",
+        commentId: 123,
+      }),
+    ).toBe(true);
+
+    expect(
+      existingConversationMatchesConfiguredAgent("agent-configured", {
+        agentId: "agent-other",
+        conversationId: "conv-existing",
+        commentId: 123,
+      }),
+    ).toBe(false);
+
+    expect(
+      existingConversationMatchesConfiguredAgent("agent-configured", {
+        agentId: "agent-configured",
+        commentId: 123,
+      }),
+    ).toBe(false);
   });
 });
