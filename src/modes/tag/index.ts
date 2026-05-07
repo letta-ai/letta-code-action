@@ -25,7 +25,7 @@ export function existingConversationMatchesConfiguredAgent(
 ): existingAgent is ExistingAgentInfo & { conversationId: string } {
   return Boolean(
     existingAgent?.conversationId &&
-      existingAgent.agentId === configuredAgentId,
+    existingAgent.agentId === configuredAgentId,
   );
 }
 
@@ -70,7 +70,9 @@ export const tagMode: Mode = {
     return [];
   },
 
-  shouldCreateTrackingComment(context?: { inputs?: { trackingComment?: boolean } }) {
+  shouldCreateTrackingComment(context?: {
+    inputs?: { trackingComment?: boolean };
+  }) {
     return context?.inputs?.trackingComment ?? true;
   },
 
