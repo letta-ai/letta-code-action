@@ -71,7 +71,7 @@ export const agentMode: Mode = {
     return [];
   },
 
-  shouldCreateTrackingComment() {
+  shouldCreateTrackingComment(_context?: { inputs?: { trackingComment?: boolean } }) {
     return false;
   },
 

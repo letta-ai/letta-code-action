@@ -95,6 +95,7 @@ type BaseContext = {
     allowedBots: string;
     allowedNonWriteUsers: string;
     trackProgress: boolean;
+    trackingComment: boolean;
     agentId?: string;
   };
 };
@@ -151,6 +152,7 @@ export function parseGitHubContext(): GitHubContext {
       allowedBots: process.env.ALLOWED_BOTS ?? "",
       allowedNonWriteUsers: process.env.ALLOWED_NON_WRITE_USERS ?? "",
       trackProgress: process.env.TRACK_PROGRESS === "true",
+      trackingComment: process.env.TRACKING_COMMENT !== "false",
       agentId: process.env.AGENT_ID || undefined,
     },
   };

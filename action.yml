@@ -78,6 +78,10 @@ inputs:
     description: "Force tag mode with tracking comments for pull_request and issue events. Only applicable to pull_request (opened, synchronize, ready_for_review, reopened) and issue (opened, edited, labeled, assigned) events."
     required: false
     default: "false"
+  tracking_comment:
+    description: "Create a tracking comment on the PR/issue showing working status and results. Set to 'false' to skip the initial and final tracking comments (agent can still leave inline review comments)."
+    required: false
+    default: "true"
   path_to_letta_executable:
     description: "Optional path to a custom Letta Code executable. If provided, skips automatic installation and uses this executable instead."
     required: false
@@ -163,6 +167,7 @@ runs:
         BOT_ID: ${{ inputs.bot_id }}
         BOT_NAME: ${{ inputs.bot_name }}
         TRACK_PROGRESS: ${{ inputs.track_progress }}
+        TRACKING_COMMENT: ${{ inputs.tracking_comment }}
         ADDITIONAL_PERMISSIONS: ${{ inputs.additional_permissions }}
         LETTA_ARGS: ${{ inputs.letta_args }}
         AGENT_ID: ${{ inputs.agent_id }}

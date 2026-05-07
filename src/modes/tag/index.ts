@@ -70,8 +70,8 @@ export const tagMode: Mode = {
     return [];
   },
 
-  shouldCreateTrackingComment() {
-    return true;
+  shouldCreateTrackingComment(context?: { inputs?: { trackingComment?: boolean } }) {
+    return context?.inputs?.trackingComment ?? true;
   },
 
   async prepare({
@@ -200,9 +200,14 @@ export const tagMode: Mode = {
       }
     }
 
-    // Create initial tracking comment
-    const commentData = await createInitialComment(octokit.rest, context);
-    const commentId = commentData.id;
+    // Create initial tracking comment (skip if tracking_comment is disabled)
+    let commentId: number | undefined;
+    if (context.inputs.trackingComment) {
+      const commentData = await createInitialComment(octokit.rest, context);
+      commentId = commentData.id;
+    } else {
+      console.log("Tracking comment disabled, skipping initial comment");
+    }
 
     const triggerTime = extractTriggerTimestamp(context);
 
