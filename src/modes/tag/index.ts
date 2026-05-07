@@ -25,7 +25,7 @@ export function existingConversationMatchesConfiguredAgent(
 ): existingAgent is ExistingAgentInfo & { conversationId: string } {
   return Boolean(
     existingAgent?.conversationId &&
-    existingAgent.agentId === configuredAgentId,
+      existingAgent.agentId === configuredAgentId,
   );
 }
 
