@@ -709,12 +709,8 @@ export async function createPrompt(
     // Prepare the context for prompt generation
     let lettaCommentId: string = "";
     if (mode.name === "tag") {
-      if (!modeContext.commentId) {
-        throw new Error(
-          `${mode.name} mode requires a comment ID for prompt generation`,
-        );
-      }
-      lettaCommentId = modeContext.commentId.toString();
+      // commentId may be absent when tracking_comment is disabled
+      lettaCommentId = modeContext.commentId?.toString() ?? "";
     }
 
     const preparedContext = prepareContext(
