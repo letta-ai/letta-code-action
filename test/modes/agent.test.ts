@@ -60,8 +60,16 @@ describe("Agent Mode", () => {
       "Direct automation mode for explicit prompts",
     );
     expect(agentMode.shouldCreateTrackingComment()).toBe(false);
-    expect(agentMode.shouldCreateTrackingComment({ inputs: { trackingComment: true } })).toBe(true);
-    expect(agentMode.shouldCreateTrackingComment({ inputs: { trackingComment: false } })).toBe(false);
+    expect(
+      agentMode.shouldCreateTrackingComment({
+        inputs: { trackingComment: true },
+      }),
+    ).toBe(true);
+    expect(
+      agentMode.shouldCreateTrackingComment({
+        inputs: { trackingComment: false },
+      }),
+    ).toBe(false);
     expect(agentMode.getAllowedTools()).toEqual([]);
     expect(agentMode.getDisallowedTools()).toEqual([]);
   });
@@ -278,9 +286,15 @@ describe("Agent Mode", () => {
     });
 
     expect(setOutputSpy).toHaveBeenCalledWith("agent_id", "agent-configured");
-    expect(setOutputSpy).toHaveBeenCalledWith("conversation_id", "conv-existing-123");
+    expect(setOutputSpy).toHaveBeenCalledWith(
+      "conversation_id",
+      "conv-existing-123",
+    );
     expect(setOutputSpy).toHaveBeenCalledWith("is_followup", "true");
-    expect(setOutputSpy).toHaveBeenCalledWith("create_new_conversation", "false");
+    expect(setOutputSpy).toHaveBeenCalledWith(
+      "create_new_conversation",
+      "false",
+    );
   });
 
   test("prepare method creates new conversation when no existing conversation found on entity context", async () => {
@@ -323,7 +337,10 @@ describe("Agent Mode", () => {
 
     expect(setOutputSpy).toHaveBeenCalledWith("agent_id", "agent-configured");
     expect(setOutputSpy).toHaveBeenCalledWith("is_followup", "false");
-    expect(setOutputSpy).toHaveBeenCalledWith("create_new_conversation", "true");
+    expect(setOutputSpy).toHaveBeenCalledWith(
+      "create_new_conversation",
+      "true",
+    );
   });
 
   test("prepare method creates prompt file with correct content", async () => {

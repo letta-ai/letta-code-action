@@ -5,10 +5,7 @@ import type { PreparedContext } from "../../create-prompt/types";
 import { configureGitAuth } from "../../github/operations/git-config";
 import type { GitHubContext } from "../../github/context";
 import { isEntityContext } from "../../github/context";
-import {
-  findExistingAgent,
-  type ExistingAgentInfo,
-} from "../../letta/find-existing-agent";
+import { findExistingAgent } from "../../letta/find-existing-agent";
 
 /**
  * Extract GitHub context as environment variables for agent mode
@@ -81,7 +78,11 @@ export const agentMode: Mode = {
     return context?.inputs?.trackingComment ?? false;
   },
 
-  async prepare({ context, octokit, githubToken }: ModeOptions): Promise<ModeResult> {
+  async prepare({
+    context,
+    octokit,
+    githubToken,
+  }: ModeOptions): Promise<ModeResult> {
     // Configure git authentication for agent mode (same as tag mode)
     if (!context.inputs.useCommitSigning) {
       // Use bot_id and bot_name from inputs directly
@@ -135,7 +136,8 @@ export const agentMode: Mode = {
         {
           isPR: context.isPR,
           prBody: context.isPR
-            ? (context.payload?.pull_request?.body ?? null)
+            ? ((context.payload as { pull_request?: { body?: string } })
+                .pull_request?.body ?? null)
             : null,
         },
       );
