@@ -5,6 +5,10 @@ import type { PreparedContext } from "../../create-prompt/types";
 import { configureGitAuth } from "../../github/operations/git-config";
 import type { GitHubContext } from "../../github/context";
 import { isEntityContext } from "../../github/context";
+import {
+  findExistingAgent,
+  type ExistingAgentInfo,
+} from "../../letta/find-existing-agent";
 
 /**
  * Extract GitHub context as environment variables for agent mode
@@ -43,8 +47,9 @@ function extractGitHubContext(context: GitHubContext): Record<string, string> {
  * Agent mode implementation.
  *
  * This mode runs whenever an explicit prompt is provided in the workflow configuration.
- * It bypasses the standard @letta mention checking and comment tracking used by tag mode,
- * providing direct access to Letta Code for automation workflows.
+ * When tracking_comment is enabled, it supports conversation persistence across runs
+ * on the same PR/issue (same as tag mode). When disabled, it behaves as a stateless
+ * automation runner.
  */
 export const agentMode: Mode = {
   name: "agent",
@@ -56,7 +61,6 @@ export const agentMode: Mode = {
   },
 
   prepareContext(context) {
-    // Agent mode doesn't use comment tracking or branch management
     return {
       mode: "agent",
       githubContext: context,
@@ -71,13 +75,13 @@ export const agentMode: Mode = {
     return [];
   },
 
-  shouldCreateTrackingComment(_context?: {
+  shouldCreateTrackingComment(context?: {
     inputs?: { trackingComment?: boolean };
   }) {
-    return false;
+    return context?.inputs?.trackingComment ?? false;
   },
 
-  async prepare({ context, githubToken }: ModeOptions): Promise<ModeResult> {
+  async prepare({ context, octokit, githubToken }: ModeOptions): Promise<ModeResult> {
     // Configure git authentication for agent mode (same as tag mode)
     if (!context.inputs.useCommitSigning) {
       // Use bot_id and bot_name from inputs directly
@@ -119,7 +123,43 @@ export const agentMode: Mode = {
     // Just pass through any user-provided args (model overrides, etc.)
     const userLettaArgs = process.env.LETTA_ARGS || "";
 
-    if (context.inputs.agentId) {
+    // Conversation persistence: search for existing conversation on this PR
+    if (context.inputs.agentId && isEntityContext(context)) {
+      core.setOutput("agent_id", context.inputs.agentId);
+
+      const existingAgent = await findExistingAgent(
+        octokit.rest,
+        context.repository.owner,
+        context.repository.repo,
+        context.entityNumber,
+        {
+          isPR: context.isPR,
+          prBody: context.isPR
+            ? (context.payload?.pull_request?.body ?? null)
+            : null,
+        },
+      );
+
+      if (
+        existingAgent?.conversationId &&
+        existingAgent.agentId === context.inputs.agentId
+      ) {
+        // Resume existing conversation
+        console.log(
+          `Resuming existing conversation: ${existingAgent.conversationId}`,
+        );
+        core.setOutput("conversation_id", existingAgent.conversationId);
+        core.setOutput("is_followup", "true");
+        core.setOutput("create_new_conversation", "false");
+      } else {
+        // No existing conversation for this agent - create new one
+        console.log(
+          "No existing conversation found, will create new conversation on configured agent",
+        );
+        core.setOutput("is_followup", "false");
+        core.setOutput("create_new_conversation", "true");
+      }
+    } else if (context.inputs.agentId) {
       core.setOutput("agent_id", context.inputs.agentId);
       core.setOutput("create_new_conversation", "true");
     }

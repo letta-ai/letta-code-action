@@ -12,12 +12,14 @@ import type { GitHubContext } from "../../src/github/context";
 import { createMockContext, createMockAutomationContext } from "../mockContext";
 import * as core from "@actions/core";
 import * as gitConfig from "../../src/github/operations/git-config";
+import * as findExistingAgent from "../../src/letta/find-existing-agent";
 
 describe("Agent Mode", () => {
   let mockContext: GitHubContext;
   let exportVariableSpy: any;
   let setOutputSpy: any;
   let configureGitAuthSpy: any;
+  let findExistingAgentSpy: any;
 
   beforeEach(() => {
     mockContext = createMockAutomationContext({
@@ -34,15 +36,22 @@ describe("Agent Mode", () => {
     ).mockImplementation(async () => {
       // Do nothing - prevent actual git config modifications
     });
+    // Mock findExistingAgent to prevent API calls
+    findExistingAgentSpy = spyOn(
+      findExistingAgent,
+      "findExistingAgent",
+    ).mockImplementation(async () => null);
   });
 
   afterEach(() => {
     exportVariableSpy?.mockClear();
     setOutputSpy?.mockClear();
     configureGitAuthSpy?.mockClear();
+    findExistingAgentSpy?.mockClear();
     exportVariableSpy?.mockRestore();
     setOutputSpy?.mockRestore();
     configureGitAuthSpy?.mockRestore();
+    findExistingAgentSpy?.mockRestore();
   });
 
   test("agent mode has correct properties", () => {
@@ -51,6 +60,8 @@ describe("Agent Mode", () => {
       "Direct automation mode for explicit prompts",
     );
     expect(agentMode.shouldCreateTrackingComment()).toBe(false);
+    expect(agentMode.shouldCreateTrackingComment({ inputs: { trackingComment: true } })).toBe(true);
+    expect(agentMode.shouldCreateTrackingComment({ inputs: { trackingComment: false } })).toBe(false);
     expect(agentMode.getAllowedTools()).toEqual([]);
     expect(agentMode.getDisallowedTools()).toEqual([]);
   });
@@ -60,7 +71,6 @@ describe("Agent Mode", () => {
 
     expect(context.mode).toBe("agent");
     expect(context.githubContext).toBe(mockContext);
-    // Agent mode doesn't use comment tracking or branch management
     expect(Object.keys(context)).toEqual(["mode", "githubContext"]);
   });
 
@@ -223,6 +233,97 @@ describe("Agent Mode", () => {
       "create_new_conversation",
       "true",
     );
+  });
+
+  test("prepare method resumes existing conversation on entity context (PR)", async () => {
+    const contextWithAgent = createMockContext({
+      eventName: "pull_request",
+      inputs: {
+        prompt: "Review this PR",
+        agentId: "agent-configured",
+      },
+    });
+
+    const mockOctokit = {
+      rest: {
+        users: {
+          getAuthenticated: mock(() =>
+            Promise.resolve({
+              data: { login: "test-user", id: 12345 },
+            }),
+          ),
+          getByUsername: mock(() =>
+            Promise.resolve({
+              data: { login: "test-user", id: 12345 },
+            }),
+          ),
+        },
+        issues: {
+          listComments: mock(() => Promise.resolve({ data: [] })),
+        },
+      },
+    } as any;
+
+    // Mock findExistingAgent to return an existing conversation
+    findExistingAgentSpy.mockImplementation(async () => ({
+      agentId: "agent-configured",
+      conversationId: "conv-existing-123",
+      commentId: 999,
+    }));
+
+    await agentMode.prepare({
+      context: contextWithAgent,
+      octokit: mockOctokit,
+      githubToken: "test-token",
+    });
+
+    expect(setOutputSpy).toHaveBeenCalledWith("agent_id", "agent-configured");
+    expect(setOutputSpy).toHaveBeenCalledWith("conversation_id", "conv-existing-123");
+    expect(setOutputSpy).toHaveBeenCalledWith("is_followup", "true");
+    expect(setOutputSpy).toHaveBeenCalledWith("create_new_conversation", "false");
+  });
+
+  test("prepare method creates new conversation when no existing conversation found on entity context", async () => {
+    const contextWithAgent = createMockContext({
+      eventName: "pull_request",
+      inputs: {
+        prompt: "Review this PR",
+        agentId: "agent-configured",
+      },
+    });
+
+    const mockOctokit = {
+      rest: {
+        users: {
+          getAuthenticated: mock(() =>
+            Promise.resolve({
+              data: { login: "test-user", id: 12345 },
+            }),
+          ),
+          getByUsername: mock(() =>
+            Promise.resolve({
+              data: { login: "test-user", id: 12345 },
+            }),
+          ),
+        },
+        issues: {
+          listComments: mock(() => Promise.resolve({ data: [] })),
+        },
+      },
+    } as any;
+
+    // Mock findExistingAgent to return null (no existing conversation)
+    findExistingAgentSpy.mockImplementation(async () => null);
+
+    await agentMode.prepare({
+      context: contextWithAgent,
+      octokit: mockOctokit,
+      githubToken: "test-token",
+    });
+
+    expect(setOutputSpy).toHaveBeenCalledWith("agent_id", "agent-configured");
+    expect(setOutputSpy).toHaveBeenCalledWith("is_followup", "false");
+    expect(setOutputSpy).toHaveBeenCalledWith("create_new_conversation", "true");
   });
 
   test("prepare method creates prompt file with correct content", async () => {
