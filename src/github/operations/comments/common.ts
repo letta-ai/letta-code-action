@@ -21,11 +21,14 @@ export function createBranchLink(
   return `\n[View branch](${branchUrl})`;
 }
 
+export const LETTA_TRACKING_MARKER = "<!-- letta-tracking -->";
+
 export function createCommentBody(
   jobRunLink: string,
   branchLink: string = "",
 ): string {
-  return `Letta Code is working… ${SPINNER_HTML}
+  return `${LETTA_TRACKING_MARKER}
+Letta Code is working… ${SPINNER_HTML}
 
 I'll analyze this and get back to you.
 

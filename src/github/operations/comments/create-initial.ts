@@ -6,7 +6,11 @@
  */
 
 import { appendFileSync } from "fs";
-import { createJobRunLink, createCommentBody } from "./common";
+import {
+  createJobRunLink,
+  createCommentBody,
+  LETTA_TRACKING_MARKER,
+} from "./common";
 import {
   isPullRequestReviewCommentEvent,
   isPullRequestEvent,
@@ -38,13 +42,13 @@ export async function createInitialComment(
         issue_number: context.entityNumber,
       });
       const existingComment = comments.data.find((comment) => {
+        const markerMatch = comment.body?.includes(LETTA_TRACKING_MARKER);
         const idMatch = comment.user?.id === LETTA_APP_BOT_ID;
         const botNameMatch =
           comment.user?.type === "Bot" &&
           comment.user?.login.toLowerCase().includes("letta");
-        const bodyMatch = comment.body === initialBody;
 
-        return idMatch || botNameMatch || bodyMatch;
+        return markerMatch || idMatch || botNameMatch;
       });
       if (existingComment) {
         response = await octokit.rest.issues.updateComment({
