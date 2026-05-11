@@ -6,6 +6,7 @@ import { configureGitAuth } from "../../github/operations/git-config";
 import type { GitHubContext } from "../../github/context";
 import { isEntityContext } from "../../github/context";
 import { findExistingAgent } from "../../letta/find-existing-agent";
+import { createInitialComment } from "../../github/operations/comments/create-initial";
 
 /**
  * Extract GitHub context as environment variables for agent mode
@@ -124,6 +125,17 @@ export const agentMode: Mode = {
     // Just pass through any user-provided args (model overrides, etc.)
     const userLettaArgs = process.env.LETTA_ARGS || "";
 
+    // Create tracking comment if enabled (for conversation persistence)
+    let commentId: number | undefined;
+    if (context.inputs.trackingComment && isEntityContext(context)) {
+      const commentData = await createInitialComment(octokit.rest, context);
+      commentId = commentData.id;
+    } else if (context.inputs.trackingComment) {
+      console.log(
+        "Tracking comment enabled but not on entity context, skipping initial comment",
+      );
+    }
+
     // Conversation persistence: search for existing conversation on this PR
     if (context.inputs.agentId && isEntityContext(context)) {
       core.setOutput("agent_id", context.inputs.agentId);
@@ -169,7 +181,7 @@ export const agentMode: Mode = {
     core.setOutput("letta_args", userLettaArgs.trim());
 
     return {
-      commentId: undefined,
+      commentId,
       branchInfo: {
         baseBranch: baseBranch,
         currentBranch: baseBranch, // Use base branch as current when creating new branch

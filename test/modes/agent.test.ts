@@ -13,6 +13,7 @@ import { createMockContext, createMockAutomationContext } from "../mockContext";
 import * as core from "@actions/core";
 import * as gitConfig from "../../src/github/operations/git-config";
 import * as findExistingAgent from "../../src/letta/find-existing-agent";
+import * as createInitialComment from "../../src/github/operations/comments/create-initial";
 
 describe("Agent Mode", () => {
   let mockContext: GitHubContext;
@@ -20,6 +21,7 @@ describe("Agent Mode", () => {
   let setOutputSpy: any;
   let configureGitAuthSpy: any;
   let findExistingAgentSpy: any;
+  let createInitialCommentSpy: any;
 
   beforeEach(() => {
     mockContext = createMockAutomationContext({
@@ -41,6 +43,11 @@ describe("Agent Mode", () => {
       findExistingAgent,
       "findExistingAgent",
     ).mockImplementation(async () => null);
+    // Mock createInitialComment to prevent API calls
+    createInitialCommentSpy = spyOn(
+      createInitialComment,
+      "createInitialComment",
+    ).mockImplementation(async () => ({ id: 12345 }) as any);
   });
 
   afterEach(() => {
@@ -48,10 +55,12 @@ describe("Agent Mode", () => {
     setOutputSpy?.mockClear();
     configureGitAuthSpy?.mockClear();
     findExistingAgentSpy?.mockClear();
+    createInitialCommentSpy?.mockClear();
     exportVariableSpy?.mockRestore();
     setOutputSpy?.mockRestore();
     configureGitAuthSpy?.mockRestore();
     findExistingAgentSpy?.mockRestore();
+    createInitialCommentSpy?.mockRestore();
   });
 
   test("agent mode has correct properties", () => {
@@ -252,25 +261,7 @@ describe("Agent Mode", () => {
       },
     });
 
-    const mockOctokit = {
-      rest: {
-        users: {
-          getAuthenticated: mock(() =>
-            Promise.resolve({
-              data: { login: "test-user", id: 12345 },
-            }),
-          ),
-          getByUsername: mock(() =>
-            Promise.resolve({
-              data: { login: "test-user", id: 12345 },
-            }),
-          ),
-        },
-        issues: {
-          listComments: mock(() => Promise.resolve({ data: [] })),
-        },
-      },
-    } as any;
+    const mockOctokit = { rest: {} } as any;
 
     // Mock findExistingAgent to return an existing conversation
     findExistingAgentSpy.mockImplementation(async () => ({
@@ -279,7 +270,7 @@ describe("Agent Mode", () => {
       commentId: 999,
     }));
 
-    await agentMode.prepare({
+    const result = await agentMode.prepare({
       context: contextWithAgent,
       octokit: mockOctokit,
       githubToken: "test-token",
@@ -295,6 +286,8 @@ describe("Agent Mode", () => {
       "create_new_conversation",
       "false",
     );
+    expect(createInitialCommentSpy).toHaveBeenCalled();
+    expect(result.commentId).toBe(12345);
   });
 
   test("prepare method creates new conversation when no existing conversation found on entity context", async () => {
@@ -306,30 +299,12 @@ describe("Agent Mode", () => {
       },
     });
 
-    const mockOctokit = {
-      rest: {
-        users: {
-          getAuthenticated: mock(() =>
-            Promise.resolve({
-              data: { login: "test-user", id: 12345 },
-            }),
-          ),
-          getByUsername: mock(() =>
-            Promise.resolve({
-              data: { login: "test-user", id: 12345 },
-            }),
-          ),
-        },
-        issues: {
-          listComments: mock(() => Promise.resolve({ data: [] })),
-        },
-      },
-    } as any;
+    const mockOctokit = { rest: {} } as any;
 
     // Mock findExistingAgent to return null (no existing conversation)
     findExistingAgentSpy.mockImplementation(async () => null);
 
-    await agentMode.prepare({
+    const result = await agentMode.prepare({
       context: contextWithAgent,
       octokit: mockOctokit,
       githubToken: "test-token",
@@ -341,6 +316,8 @@ describe("Agent Mode", () => {
       "create_new_conversation",
       "true",
     );
+    expect(createInitialCommentSpy).toHaveBeenCalled();
+    expect(result.commentId).toBe(12345);
   });
 
   test("prepare method creates prompt file with correct content", async () => {
