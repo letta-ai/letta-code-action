@@ -5,6 +5,10 @@ import type { PreparedContext } from "../../create-prompt/types";
 import { configureGitAuth } from "../../github/operations/git-config";
 import type { GitHubContext } from "../../github/context";
 import { isEntityContext } from "../../github/context";
+import {
+  findConversationBySummary,
+  buildConversationSummary,
+} from "../../letta/client";
 
 /**
  * Extract GitHub context as environment variables for agent mode
@@ -43,8 +47,9 @@ function extractGitHubContext(context: GitHubContext): Record<string, string> {
  * Agent mode implementation.
  *
  * This mode runs whenever an explicit prompt is provided in the workflow configuration.
- * It bypasses the standard @letta mention checking and comment tracking used by tag mode,
- * providing direct access to Letta Code for automation workflows.
+ * On entity contexts (PRs/issues), it searches for existing conversations via the
+ * Letta API (matching on conversation summary) so that subsequent runs on the same
+ * PR/issue resume the existing conversation instead of starting fresh.
  */
 export const agentMode: Mode = {
   name: "agent",
@@ -56,7 +61,6 @@ export const agentMode: Mode = {
   },
 
   prepareContext(context) {
-    // Agent mode doesn't use comment tracking or branch management
     return {
       mode: "agent",
       githubContext: context,
@@ -119,7 +123,35 @@ export const agentMode: Mode = {
     // Just pass through any user-provided args (model overrides, etc.)
     const userLettaArgs = process.env.LETTA_ARGS || "";
 
-    if (context.inputs.agentId) {
+    // Conversation persistence: search for existing conversation via Letta API
+    if (context.inputs.agentId && isEntityContext(context)) {
+      core.setOutput("agent_id", context.inputs.agentId);
+
+      const summary = buildConversationSummary(
+        context.isPR ? "PR" : "Issue",
+        context.entityNumber,
+        context.repository.full_name,
+      );
+
+      const existingConversationId = await findConversationBySummary(
+        context.inputs.agentId,
+        summary,
+      );
+
+      if (existingConversationId) {
+        // Resume existing conversation
+        core.setOutput("conversation_id", existingConversationId);
+        core.setOutput("is_followup", "true");
+        core.setOutput("create_new_conversation", "false");
+      } else {
+        // No existing conversation - create new one
+        console.log(
+          "No existing conversation found, will create new conversation",
+        );
+        core.setOutput("is_followup", "false");
+        core.setOutput("create_new_conversation", "true");
+      }
+    } else if (context.inputs.agentId) {
       core.setOutput("agent_id", context.inputs.agentId);
       core.setOutput("create_new_conversation", "true");
     }

@@ -171,6 +171,7 @@ runs:
         ADDITIONAL_PERMISSIONS: ${{ inputs.additional_permissions }}
         LETTA_ARGS: ${{ inputs.letta_args }}
         AGENT_ID: ${{ inputs.agent_id }}
+        LETTA_API_KEY: ${{ inputs.letta_api_key }}
         ALL_INPUTS: ${{ toJson(inputs) }}
 
     - name: Install Base Action Dependencies

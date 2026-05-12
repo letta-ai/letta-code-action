@@ -107,6 +107,66 @@ export async function getLatestConversation(
 }
 
 /**
+ * Find an existing conversation for an agent by its summary.
+ * Used to resume conversations across review runs on the same PR/issue.
+ *
+ * @param agentId - The agent ID to search conversations for
+ * @param summary - The summary to match (e.g., "owner/repo/pr-123")
+ * @param apiKey - Optional API key (reads from LETTA_API_KEY or INPUT_LETTA_API_KEY if not provided)
+ * @returns The most recent matching conversation ID, or null
+ */
+export async function findConversationBySummary(
+  agentId: string,
+  summary: string,
+  apiKey?: string,
+): Promise<string | null> {
+  const key = apiKey || process.env.LETTA_API_KEY;
+
+  if (!key) {
+    console.warn("LETTA_API_KEY not set, cannot search conversations");
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    agent_id: agentId,
+    summary,
+    limit: "1",
+    order: "desc",
+  });
+  const url = `${LETTA_API_BASE_URL}/v1/conversations/?${params}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${key}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`Failed to search conversations: ${response.status}`);
+      return null;
+    }
+
+    const data = (await response.json()) as Array<{
+      id: string;
+      summary: string;
+    }>;
+    const match = data?.[0];
+    if (match) {
+      console.log(`Found existing conversation for ${summary}: ${match.id}`);
+      return match.id;
+    }
+
+    console.log(`No existing conversation found for ${summary}`);
+    return null;
+  } catch (error) {
+    console.error("Error searching conversations:", error);
+    return null;
+  }
+}
+
+/**
  * Get agent details from the Letta API.
  */
 export async function getAgentInfo(
