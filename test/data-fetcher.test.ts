@@ -1,5 +1,7 @@
 import { describe, expect, it, jest } from "bun:test";
+import { rmSync, writeFileSync } from "fs";
 import {
+  computeChangedFileSHAs,
   extractTriggerTimestamp,
   fetchGitHubData,
   filterCommentsToTriggerTime,
@@ -15,6 +17,64 @@ import {
   mockIssueOpenedContext,
 } from "./mockContext";
 import type { GitHubComment, GitHubReview } from "../src/github/types";
+
+describe("computeChangedFileSHAs", () => {
+  it("returns no SHA data outside PR contexts", () => {
+    const result = computeChangedFileSHAs(false, [
+      {
+        path: "src/example.ts",
+        additions: 1,
+        deletions: 0,
+        changeType: "ADDED",
+      },
+    ]);
+
+    expect(result).toEqual([]);
+  });
+
+  it("marks deleted files without touching the worktree", () => {
+    const result = computeChangedFileSHAs(true, [
+      {
+        path: "src/deleted.ts",
+        additions: 0,
+        deletions: 4,
+        changeType: "DELETED",
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        path: "src/deleted.ts",
+        additions: 0,
+        deletions: 4,
+        changeType: "DELETED",
+        sha: "deleted",
+      },
+    ]);
+  });
+
+  it("uses -- before hashing file paths", () => {
+    const path = "--leading-dash.ts";
+
+    try {
+      writeFileSync(path, "test content\n");
+
+      const result = computeChangedFileSHAs(true, [
+        {
+          path,
+          additions: 1,
+          deletions: 0,
+          changeType: "ADDED",
+        },
+      ]);
+
+      expect(result[0]?.sha).not.toBe("unknown");
+      expect(result[0]?.sha).toHaveLength(40);
+    } finally {
+      rmSync(path, { force: true });
+    }
+  });
+});
 
 describe("extractTriggerTimestamp", () => {
   it("should extract timestamp from IssueCommentEvent", () => {
@@ -641,6 +701,54 @@ describe("fetchGitHubData integration with time filtering", () => {
     );
     // Only review 1 should have its body processed (before trigger and not edited after)
     expect(reviewsInMap.length).toBeLessThanOrEqual(1);
+  });
+
+  it("should defer changed-file SHA computation until after PR checkout", async () => {
+    const mockOctokits = {
+      graphql: jest.fn().mockResolvedValue({
+        repository: {
+          pullRequest: {
+            number: 654,
+            title: "Test PR",
+            body: "PR body",
+            author: { login: "author" },
+            comments: { nodes: [] },
+            files: {
+              nodes: [
+                {
+                  path: "new-file.ts",
+                  additions: 10,
+                  deletions: 0,
+                  changeType: "ADDED",
+                },
+              ],
+            },
+            reviews: { nodes: [] },
+          },
+        },
+        user: { login: "trigger-user" },
+      }),
+      rest: jest.fn() as any,
+    };
+
+    const result = await fetchGitHubData({
+      octokits: mockOctokits as any,
+      repository: "test-owner/test-repo",
+      prNumber: "654",
+      isPR: true,
+      triggerUsername: "trigger-user",
+      triggerTime: "2024-01-15T12:00:00Z",
+    });
+
+    expect(result.changedFiles).toEqual([
+      {
+        path: "new-file.ts",
+        additions: 10,
+        deletions: 0,
+        changeType: "ADDED",
+      },
+    ]);
+    expect(result.changedFilesWithSHA).toEqual([]);
   });
 
   it("should filter review comments based on trigger time", async () => {

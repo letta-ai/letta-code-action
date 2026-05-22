@@ -11,13 +11,48 @@ import * as core from "@actions/core";
 import type { ParsedGitHubContext } from "../context";
 import type { GitHubPullRequest } from "../types";
 import type { Octokits } from "../api/client";
-import type { FetchDataResult } from "../data/fetcher";
+import { computeChangedFileSHAs, type FetchDataResult } from "../data/fetcher";
 
 export type BranchInfo = {
   baseBranch: string;
   lettaBranch?: string;
   currentBranch: string;
 };
+
+export type PullRequestBranchPlan = {
+  fetchRef: string;
+  checkoutBranch: string;
+  lettaBranch?: string;
+};
+
+export function getPullRequestBranchPlan(
+  entityNumber: number,
+  headRefName: string,
+  isCrossRepository: boolean,
+  branchPrefix: string,
+): PullRequestBranchPlan {
+  const checkoutBranch = isCrossRepository
+    ? `letta-pr-${entityNumber}`
+    : headRefName;
+  return {
+    fetchRef: `refs/pull/${entityNumber}/head`,
+    checkoutBranch,
+    ...(isCrossRepository && {
+      lettaBranch: `${branchPrefix}pr-${entityNumber}-review`
+        .toLowerCase()
+        .substring(0, 50),
+    }),
+  };
+}
+
+async function remoteBranchExists(branchName: string): Promise<boolean> {
+  try {
+    await $`git ls-remote --exit-code --heads origin ${branchName}`.quiet();
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function setupBranch(
   octokits: Octokits,
@@ -43,7 +78,17 @@ export async function setupBranch(
       // Handle open PR: Checkout the PR branch
       console.log("This is an open PR, checking out PR branch...");
 
-      const branchName = prData.headRefName;
+      if (typeof prData.isCrossRepository !== "boolean") {
+        throw new Error("PR data is missing isCrossRepository");
+      }
+
+      const { fetchRef, checkoutBranch, lettaBranch } =
+        getPullRequestBranchPlan(
+          entityNumber,
+          prData.headRefName,
+          prData.isCrossRepository,
+          branchPrefix,
+        );
 
       // Determine optimal fetch depth based on PR commit count, with a minimum of 20
       const commitCount = prData.commits.totalCount;
@@ -53,18 +98,45 @@ export async function setupBranch(
         `PR #${entityNumber}: ${commitCount} commits, using fetch depth ${fetchDepth}`,
       );
 
-      // Execute git commands to checkout PR branch (dynamic depth based on PR size)
-      await $`git fetch origin --depth=${fetchDepth} ${branchName}`;
-      await $`git checkout ${branchName} --`;
+      // GitHub exposes pull/<number>/head for both same-repo and fork PRs.
+      // Fork PRs use a synthetic local branch to avoid clobbering branches like main.
+      await $`git fetch origin --depth=${fetchDepth} ${fetchRef}`;
+      await $`git checkout -B ${checkoutBranch} FETCH_HEAD`;
+      githubData.changedFilesWithSHA = computeChangedFileSHAs(
+        true,
+        githubData.changedFiles,
+      );
 
       console.log(`Successfully checked out PR branch for PR #${entityNumber}`);
 
       // For open PRs, we need to get the base branch of the PR
       const baseBranch = prData.baseRefName;
 
+      if (!prData.isCrossRepository) {
+        return {
+          baseBranch,
+          currentBranch: checkoutBranch,
+        };
+      }
+
+      if (!lettaBranch) {
+        throw new Error("Fork PR checkout requires a Letta branch");
+      }
+
+      if (await remoteBranchExists(lettaBranch)) {
+        console.log(`Reusing existing Letta branch: ${lettaBranch}`);
+        await $`git fetch origin --depth=${fetchDepth} +refs/heads/${lettaBranch}:${lettaBranch}`;
+        await $`git checkout ${lettaBranch} --`;
+      } else {
+        await $`git checkout -b ${lettaBranch}`;
+      }
+
+      core.setOutput("LETTA_BRANCH", lettaBranch);
+      core.setOutput("BASE_BRANCH", baseBranch);
       return {
         baseBranch,
-        currentBranch: branchName,
+        lettaBranch,
+        currentBranch: lettaBranch,
       };
     }
   }

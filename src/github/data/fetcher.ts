@@ -234,37 +234,7 @@ export async function fetchGitHubData({
     throw new Error(`Failed to fetch ${isPR ? "PR" : "issue"} data`);
   }
 
-  // Compute SHAs for changed files
-  let changedFilesWithSHA: GitHubFileWithSHA[] = [];
-  if (isPR && changedFiles.length > 0) {
-    changedFilesWithSHA = changedFiles.map((file) => {
-      // Don't compute SHA for deleted files
-      if (file.changeType === "DELETED") {
-        return {
-          ...file,
-          sha: "deleted",
-        };
-      }
-
-      try {
-        // Use git hash-object to compute the SHA for the current file content
-        const sha = execFileSync("git", ["hash-object", file.path], {
-          encoding: "utf-8",
-        }).trim();
-        return {
-          ...file,
-          sha,
-        };
-      } catch (error) {
-        console.warn(`Failed to compute SHA for ${file.path}:`, error);
-        // Return original file without SHA if computation fails
-        return {
-          ...file,
-          sha: "unknown",
-        };
-      }
-    });
-  }
+  const changedFilesWithSHA: GitHubFileWithSHA[] = [];
 
   // Prepare all comments for image processing
   const issueComments: CommentWithImages[] = comments
@@ -363,6 +333,40 @@ export async function fetchGitHubData({
     imageUrlMap,
     triggerDisplayName,
   };
+}
+
+export function computeChangedFileSHAs(
+  isPR: boolean,
+  changedFiles: GitHubFile[],
+): GitHubFileWithSHA[] {
+  if (!isPR || changedFiles.length === 0) {
+    return [];
+  }
+
+  return changedFiles.map((file) => {
+    if (file.changeType === "DELETED") {
+      return {
+        ...file,
+        sha: "deleted",
+      };
+    }
+
+    try {
+      const sha = execFileSync("git", ["hash-object", "--", file.path], {
+        encoding: "utf-8",
+      }).trim();
+      return {
+        ...file,
+        sha,
+      };
+    } catch (error) {
+      console.warn(`Failed to compute SHA for ${file.path}:`, error);
+      return {
+        ...file,
+        sha: "unknown",
+      };
+    }
+  });
 }
 
 export type UserQueryResponse = {
