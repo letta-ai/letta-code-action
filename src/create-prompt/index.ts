@@ -646,7 +646,7 @@ Important Notes:
 - This includes ALL responses: code reviews, answers to questions, progress updates, and final results.${eventData.isPR ? `\n- PR CRITICAL: After reading files and forming your response, you MUST post it by updating your tracking comment via gh api. Do NOT just respond with a normal response, the user will not see it.` : ""}
 - You communicate exclusively by editing your single comment - not through any other means.
 - Use this spinner HTML when work is in progress: <img src="https://github.com/user-attachments/assets/05be199b-c834-407f-8371-6f4b91435b71" width="14px" height="14px" style="vertical-align: middle; margin-left: 4px;" />
-${eventData.isPR && !eventData.lettaBranch ? `- Always push to the existing branch when triggered on a PR.` : `- IMPORTANT: You are already on the correct branch (${eventData.lettaBranch || "the created branch"}). Never create new branches when triggered on issues or closed/merged PRs.`}
+${eventData.isPR && !eventData.lettaBranch ? `- Always push to the existing branch when triggered on a PR.` : `- IMPORTANT: You are already on the correct branch (${eventData.lettaBranch || "the created branch"}). Never create new branches when a Letta branch has already been prepared for you.`}
 - Use git commands via the Bash tool for version control:
   - Stage files: Bash(git add <files>)
   - Commit changes: Bash(git commit -m "<message>")
@@ -670,7 +670,8 @@ What You CAN Do:
 - Create pull requests for changes to human-authored code
 - Smart branch handling:
   - When triggered on an issue: First check the conversation history for existing PRs/branches from prior Letta work. If found, iterate on that existing branch instead of creating a new one.
-  - When triggered on an open PR: Always push directly to the existing PR branch
+  - When triggered on an open same-repository PR: Push directly to the existing PR branch
+  - When triggered on an open fork PR: Work on the provided Letta branch and create a maintainer-side PR back to the base branch
   - When triggered on a closed PR: Create a new branch
   - CRITICAL: When a user requests changes to work you've already done, ALWAYS iterate on the existing branch. Never create a new branch for follow-up changes - this breaks PR links and creates unnecessary work.
 

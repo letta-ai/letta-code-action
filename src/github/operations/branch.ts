@@ -11,7 +11,7 @@ import * as core from "@actions/core";
 import type { ParsedGitHubContext } from "../context";
 import type { GitHubPullRequest } from "../types";
 import type { Octokits } from "../api/client";
-import type { FetchDataResult } from "../data/fetcher";
+import { computeChangedFileSHAs, type FetchDataResult } from "../data/fetcher";
 
 export type BranchInfo = {
   baseBranch: string;
@@ -19,11 +19,161 @@ export type BranchInfo = {
   currentBranch: string;
 };
 
+export type PullRequestBranchPlan = {
+  fetchRef: string;
+  checkoutBranch: string;
+  lettaBranch?: string;
+  legacyLettaBranch?: string;
+};
+
+export type SetupBranchOptions = {
+  cwd?: string;
+  setOutput?: typeof core.setOutput;
+};
+
+function withCwd(
+  command: ReturnType<typeof $>,
+  cwd?: string,
+): ReturnType<typeof $> {
+  return cwd ? command.cwd(cwd) : command;
+}
+
+export function getPullRequestBranchPlan(
+  entityNumber: number,
+  headRefName: string,
+  isCrossRepository: boolean,
+  branchPrefix: string,
+): PullRequestBranchPlan {
+  const checkoutBranch = isCrossRepository
+    ? `letta-pr-${entityNumber}`
+    : headRefName;
+  const reviewBranchSuffix = `pr-${entityNumber}-review`;
+  const normalizedReviewBranchPrefix = branchPrefix.toLowerCase();
+  const legacyLettaBranch =
+    `${normalizedReviewBranchPrefix}${reviewBranchSuffix}`.substring(0, 50);
+  const maxReviewBranchPrefixLength = Math.max(
+    0,
+    50 - reviewBranchSuffix.length,
+  );
+  let reviewBranchPrefix = normalizedReviewBranchPrefix.substring(
+    0,
+    maxReviewBranchPrefixLength,
+  );
+
+  if (normalizedReviewBranchPrefix.length > maxReviewBranchPrefixLength) {
+    reviewBranchPrefix = reviewBranchPrefix.replace(/[^/-]*$/, "");
+  }
+
+  const lettaBranch = `${reviewBranchPrefix}${reviewBranchSuffix}`;
+
+  return {
+    fetchRef: `refs/pull/${entityNumber}/head`,
+    checkoutBranch,
+    ...(isCrossRepository && {
+      lettaBranch,
+      ...(legacyLettaBranch !== lettaBranch && {
+        legacyLettaBranch,
+      }),
+    }),
+  };
+}
+
+async function remoteBranchExists(
+  branchName: string,
+  cwd?: string,
+): Promise<boolean> {
+  const expectedRef = `refs/heads/${branchName}`;
+  try {
+    const output = await withCwd(
+      $`git ls-remote --heads origin ${expectedRef}`,
+      cwd,
+    )
+      .quiet()
+      .text();
+    return output
+      .split("\n")
+      .some((line) => line.split(/\s+/)[1] === expectedRef);
+  } catch {
+    return false;
+  }
+}
+
+async function isValidBranchName(
+  branchName: string,
+  cwd?: string,
+): Promise<boolean> {
+  try {
+    await withCwd($`git check-ref-format --branch ${branchName}`, cwd).quiet();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function assertValidBranchName(
+  branchName: string,
+  cwd?: string,
+): Promise<void> {
+  if (!(await isValidBranchName(branchName, cwd))) {
+    throw new Error(
+      `Invalid generated branch name "${branchName}". Check branch_prefix; generated review branches must be valid git branch names.`,
+    );
+  }
+}
+
+async function branchContainsCommit(
+  branchName: string,
+  commitish: string,
+  cwd?: string,
+): Promise<boolean> {
+  try {
+    await withCwd(
+      $`git merge-base --is-ancestor ${commitish} ${branchName}`,
+      cwd,
+    ).quiet();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function deepenRemoteBranchHistory(
+  branchName: string,
+  cwd?: string,
+): Promise<void> {
+  try {
+    await withCwd(
+      $`git fetch origin --unshallow +refs/heads/${branchName}:${branchName}`,
+      cwd,
+    ).quiet();
+    return;
+  } catch {
+    // Fall through: --unshallow fails when the repository is already complete.
+  }
+
+  try {
+    await withCwd(
+      $`git fetch origin --deepen=1000000 +refs/heads/${branchName}:${branchName}`,
+      cwd,
+    ).quiet();
+    return;
+  } catch {
+    // Last fallback for complete repositories that reject --deepen.
+  }
+
+  await withCwd(
+    $`git fetch origin +refs/heads/${branchName}:${branchName}`,
+    cwd,
+  ).quiet();
+}
+
 export async function setupBranch(
   octokits: Octokits,
   githubData: FetchDataResult,
   context: ParsedGitHubContext,
+  options: SetupBranchOptions = {},
 ): Promise<BranchInfo> {
+  const { cwd, setOutput = core.setOutput } = options;
   const { owner, repo } = context.repository;
   const entityNumber = context.entityNumber;
   const { baseBranch, branchPrefix } = context.inputs;
@@ -43,7 +193,25 @@ export async function setupBranch(
       // Handle open PR: Checkout the PR branch
       console.log("This is an open PR, checking out PR branch...");
 
-      const branchName = prData.headRefName;
+      if (typeof prData.isCrossRepository !== "boolean") {
+        throw new Error("PR data is missing isCrossRepository");
+      }
+
+      const { fetchRef, checkoutBranch, lettaBranch, legacyLettaBranch } =
+        getPullRequestBranchPlan(
+          entityNumber,
+          prData.headRefName,
+          prData.isCrossRepository,
+          branchPrefix,
+        );
+
+      if (lettaBranch) {
+        await assertValidBranchName(lettaBranch, cwd);
+      }
+      const validLegacyLettaBranch =
+        legacyLettaBranch && (await isValidBranchName(legacyLettaBranch, cwd))
+          ? legacyLettaBranch
+          : undefined;
 
       // Determine optimal fetch depth based on PR commit count, with a minimum of 20
       const commitCount = prData.commits.totalCount;
@@ -53,18 +221,84 @@ export async function setupBranch(
         `PR #${entityNumber}: ${commitCount} commits, using fetch depth ${fetchDepth}`,
       );
 
-      // Execute git commands to checkout PR branch (dynamic depth based on PR size)
-      await $`git fetch origin --depth=${fetchDepth} ${branchName}`;
-      await $`git checkout ${branchName} --`;
+      // GitHub exposes pull/<number>/head for both same-repo and fork PRs.
+      // Fork PRs use a synthetic local branch to avoid clobbering branches like main.
+      await withCwd($`git fetch origin --depth=${fetchDepth} ${fetchRef}`, cwd);
+      await withCwd($`git checkout -B ${checkoutBranch} FETCH_HEAD`, cwd);
+      githubData.changedFilesWithSHA = computeChangedFileSHAs(
+        true,
+        githubData.changedFiles,
+        cwd,
+      );
 
       console.log(`Successfully checked out PR branch for PR #${entityNumber}`);
 
       // For open PRs, we need to get the base branch of the PR
       const baseBranch = prData.baseRefName;
 
+      if (!prData.isCrossRepository) {
+        return {
+          baseBranch,
+          currentBranch: checkoutBranch,
+        };
+      }
+
+      if (!lettaBranch) {
+        throw new Error("Fork PR checkout requires a Letta branch");
+      }
+
+      let existingLettaBranch: string | undefined;
+      if (await remoteBranchExists(lettaBranch, cwd)) {
+        existingLettaBranch = lettaBranch;
+      } else if (
+        validLegacyLettaBranch &&
+        (await remoteBranchExists(validLegacyLettaBranch, cwd))
+      ) {
+        existingLettaBranch = validLegacyLettaBranch;
+      }
+
+      const activeLettaBranch = existingLettaBranch ?? lettaBranch;
+
+      if (existingLettaBranch) {
+        const branchKind =
+          activeLettaBranch === validLegacyLettaBranch ? "legacy " : "";
+        console.log(
+          `Reusing existing ${branchKind}Letta branch: ${activeLettaBranch}`,
+        );
+        await withCwd(
+          $`git fetch origin --depth=${fetchDepth} +refs/heads/${activeLettaBranch}:${activeLettaBranch}`,
+          cwd,
+        );
+        if (
+          !(await branchContainsCommit(activeLettaBranch, checkoutBranch, cwd))
+        ) {
+          console.log(
+            `Deepening existing Letta branch ${activeLettaBranch} before stale branch check...`,
+          );
+          await deepenRemoteBranchHistory(activeLettaBranch, cwd);
+          if (
+            !(await branchContainsCommit(
+              activeLettaBranch,
+              checkoutBranch,
+              cwd,
+            ))
+          ) {
+            throw new Error(
+              `Existing Letta branch "${activeLettaBranch}" does not contain the latest PR head. Rebase or delete that branch before rerunning.`,
+            );
+          }
+        }
+        await withCwd($`git checkout ${activeLettaBranch}`, cwd);
+      } else {
+        await withCwd($`git checkout -b ${lettaBranch}`, cwd);
+      }
+
+      setOutput("LETTA_BRANCH", activeLettaBranch);
+      setOutput("BASE_BRANCH", baseBranch);
       return {
         baseBranch,
-        currentBranch: branchName,
+        lettaBranch: activeLettaBranch,
+        currentBranch: activeLettaBranch,
       };
     }
   }
@@ -118,12 +352,12 @@ export async function setupBranch(
 
       // Ensure we're on the source branch
       console.log(`Fetching and checking out source branch: ${sourceBranch}`);
-      await $`git fetch origin ${sourceBranch} --depth=1`;
-      await $`git checkout ${sourceBranch}`;
+      await withCwd($`git fetch origin ${sourceBranch} --depth=1`, cwd);
+      await withCwd($`git checkout ${sourceBranch}`, cwd);
 
       // Set outputs for GitHub Actions
-      core.setOutput("LETTA_BRANCH", newBranch);
-      core.setOutput("BASE_BRANCH", sourceBranch);
+      setOutput("LETTA_BRANCH", newBranch);
+      setOutput("BASE_BRANCH", sourceBranch);
       return {
         baseBranch: sourceBranch,
         lettaBranch: newBranch,
@@ -138,19 +372,19 @@ export async function setupBranch(
 
     // Fetch and checkout the source branch first to ensure we branch from the correct base
     console.log(`Fetching and checking out source branch: ${sourceBranch}`);
-    await $`git fetch origin ${sourceBranch} --depth=1`;
-    await $`git checkout ${sourceBranch}`;
+    await withCwd($`git fetch origin ${sourceBranch} --depth=1`, cwd);
+    await withCwd($`git checkout ${sourceBranch}`, cwd);
 
     // Create and checkout the new branch from the source branch
-    await $`git checkout -b ${newBranch}`;
+    await withCwd($`git checkout -b ${newBranch}`, cwd);
 
     console.log(
       `Successfully created and checked out local branch: ${newBranch}`,
     );
 
     // Set outputs for GitHub Actions
-    core.setOutput("LETTA_BRANCH", newBranch);
-    core.setOutput("BASE_BRANCH", sourceBranch);
+    setOutput("LETTA_BRANCH", newBranch);
+    setOutput("BASE_BRANCH", sourceBranch);
     return {
       baseBranch: sourceBranch,
       lettaBranch: newBranch,
