@@ -1,5 +1,7 @@
 import { describe, expect, it, jest } from "bun:test";
-import { rmSync, writeFileSync } from "fs";
+import { mkdtempSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import {
   computeChangedFileSHAs,
   extractTriggerTimestamp,
@@ -53,25 +55,30 @@ describe("computeChangedFileSHAs", () => {
     ]);
   });
 
-  it("uses -- before hashing file paths", () => {
+  it("uses -- before hashing file paths", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "hash-object-test-"));
     const path = "--leading-dash.ts";
 
     try {
-      writeFileSync(path, "test content\n");
+      writeFileSync(join(tempDir, path), "test content\n");
 
-      const result = computeChangedFileSHAs(true, [
-        {
-          path,
-          additions: 1,
-          deletions: 0,
-          changeType: "ADDED",
-        },
-      ]);
+      const result = computeChangedFileSHAs(
+        true,
+        [
+          {
+            path,
+            additions: 1,
+            deletions: 0,
+            changeType: "ADDED",
+          },
+        ],
+        tempDir,
+      );
 
       expect(result[0]?.sha).not.toBe("unknown");
       expect(result[0]?.sha).toHaveLength(40);
     } finally {
-      rmSync(path, { force: true });
+      rmSync(tempDir, { recursive: true, force: true });
     }
   });
 });

@@ -1,9 +1,8 @@
-import { describe, expect, spyOn, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { execFileSync } from "child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import * as core from "@actions/core";
 import {
   getPullRequestBranchPlan,
   setupBranch,
@@ -25,7 +24,23 @@ function gitWithInput(cwd: string, args: string[], input: string): string {
   }).trim();
 }
 
-function createRemoteWithPullRef(options?: { reviewBranch?: boolean }) {
+function createOutputCollector() {
+  const calls: Array<[string, string]> = [];
+  return {
+    calls,
+    setOutput: (name: string, value: string) => {
+      calls.push([name, value]);
+    },
+  };
+}
+
+function createRemoteWithPullRef(options?: {
+  reviewBranch?: boolean;
+  reviewBranchName?: string;
+  reviewBranchExtraCommits?: number;
+  advancePullRefAfterReviewBranch?: boolean;
+  nestedReviewBranchOnly?: boolean;
+}) {
   const root = mkdtempSync(join(tmpdir(), "letta-branch-test-"));
   const remote = join(root, "remote.git");
   const seed = join(root, "seed");
@@ -47,14 +62,33 @@ function createRemoteWithPullRef(options?: { reviewBranch?: boolean }) {
   writeFileSync(join(seed, "feature.txt"), "feature\n");
   git(seed, ["add", "feature.txt"]);
   git(seed, ["commit", "-m", "feature"]);
+  const featureHead = git(seed, ["rev-parse", "HEAD"]);
   git(seed, ["push", "origin", "HEAD:refs/pull/37/head"]);
 
-  if (options?.reviewBranch) {
+  if (options?.reviewBranch || options?.reviewBranchName) {
+    const reviewBranchName = options.reviewBranchName ?? "letta/pr-37-review";
     writeFileSync(join(seed, "feature.txt"), "review branch\n");
     writeFileSync(join(seed, "review.txt"), "existing review\n");
     git(seed, ["add", "feature.txt", "review.txt"]);
     git(seed, ["commit", "-m", "existing review branch"]);
-    git(seed, ["push", "origin", "HEAD:refs/heads/letta/pr-37-review"]);
+    for (let i = 1; i <= (options.reviewBranchExtraCommits ?? 0); i++) {
+      writeFileSync(join(seed, `review-${i}.txt`), `review ${i}\n`);
+      git(seed, ["add", `review-${i}.txt`]);
+      git(seed, ["commit", "-m", `review update ${i}`]);
+    }
+    git(seed, ["push", "origin", `HEAD:refs/heads/${reviewBranchName}`]);
+  }
+
+  if (options?.advancePullRefAfterReviewBranch) {
+    git(seed, ["reset", "--hard", featureHead]);
+    writeFileSync(join(seed, "updated.txt"), "updated PR head\n");
+    git(seed, ["add", "updated.txt"]);
+    git(seed, ["commit", "-m", "advance pull ref"]);
+    git(seed, ["push", "origin", "HEAD:refs/pull/37/head"]);
+  }
+
+  if (options?.nestedReviewBranchOnly) {
+    git(seed, ["push", "origin", "HEAD:refs/heads/foo/letta/pr-37-review"]);
   }
 
   execFileSync("git", ["clone", "--branch", "main", remote, worktree], {
@@ -101,6 +135,16 @@ function createBranchContext() {
   } as any;
 }
 
+function createBranchContextWithPrefix(branchPrefix: string) {
+  return {
+    ...createBranchContext(),
+    inputs: {
+      baseBranch: "",
+      branchPrefix,
+    },
+  } as any;
+}
+
 describe("setupBranch", () => {
   test("uses a synthetic checkout and review branch for fork PRs", () => {
     expect(getPullRequestBranchPlan(37, "main", true, "letta/")).toEqual({
@@ -126,22 +170,23 @@ describe("setupBranch", () => {
         "feature",
         true,
         "LETTA-REVIEW-BRANCH-WITH-A-LONG-PREFIX-",
-      ).lettaBranch,
-    ).toBe("letta-review-branch-with-a-long-prefix-pr-123-revi");
+      ),
+    ).toMatchObject({
+      lettaBranch: "letta-review-branch-with-a-long-pr-123-review",
+      legacyLettaBranch: "letta-review-branch-with-a-long-prefix-pr-123-revi",
+    });
   });
 
   test("resets a same-repo PR branch even when it is already checked out", async () => {
     const { root, worktree } = createRemoteWithPullRef();
-    const previousCwd = process.cwd();
 
     try {
       git(worktree, ["checkout", "-b", "feature"]);
-      process.chdir(worktree);
-
       const result = await setupBranch(
         {} as any,
         createPullRequestData(false),
         createBranchContext(),
+        { cwd: worktree },
       );
 
       expect(result).toEqual({
@@ -155,7 +200,6 @@ describe("setupBranch", () => {
         "feature",
       );
     } finally {
-      process.chdir(previousCwd);
       rmSync(root, { recursive: true, force: true });
     }
   });
@@ -164,17 +208,15 @@ describe("setupBranch", () => {
     const { root, worktree } = createRemoteWithPullRef({
       reviewBranch: true,
     });
-    const previousCwd = process.cwd();
-    const setOutputSpy = spyOn(core, "setOutput").mockImplementation(() => {});
 
     try {
-      process.chdir(worktree);
-
       const githubData = createPullRequestData(true);
+      const outputs = createOutputCollector();
       const result = await setupBranch(
         {} as any,
         githubData,
         createBranchContext(),
+        { cwd: worktree, setOutput: outputs.setOutput },
       );
 
       expect(result).toEqual({
@@ -194,14 +236,157 @@ describe("setupBranch", () => {
       expect(githubData.changedFilesWithSHA[0]?.sha).toBe(
         gitWithInput(worktree, ["hash-object", "--stdin"], "feature\n"),
       );
-      expect(setOutputSpy).toHaveBeenCalledWith(
+      expect(outputs.calls).toContainEqual([
         "LETTA_BRANCH",
         "letta/pr-37-review",
-      );
-      expect(setOutputSpy).toHaveBeenCalledWith("BASE_BRANCH", "main");
+      ]);
+      expect(outputs.calls).toContainEqual(["BASE_BRANCH", "main"]);
     } finally {
-      setOutputSpy.mockRestore();
-      process.chdir(previousCwd);
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("reuses legacy truncated Letta branch names for fork PR follow-ups", async () => {
+    const branchPrefix = "LETTA-REVIEW-BRANCH-WITH-A-LONG-PREFIX-";
+    const legacyLettaBranch = getPullRequestBranchPlan(
+      37,
+      "feature",
+      true,
+      branchPrefix,
+    ).legacyLettaBranch;
+    expect(legacyLettaBranch).toBe(
+      "letta-review-branch-with-a-long-prefix-pr-37-revie",
+    );
+    if (!legacyLettaBranch) {
+      throw new Error("Expected a legacy branch fallback");
+    }
+    const { root, worktree } = createRemoteWithPullRef({
+      reviewBranchName: legacyLettaBranch,
+    });
+
+    try {
+      const outputs = createOutputCollector();
+      const result = await setupBranch(
+        {} as any,
+        createPullRequestData(true),
+        createBranchContextWithPrefix(branchPrefix),
+        { cwd: worktree, setOutput: outputs.setOutput },
+      );
+
+      expect(result).toEqual({
+        baseBranch: "main",
+        lettaBranch: legacyLettaBranch,
+        currentBranch: legacyLettaBranch,
+      });
+      expect(git(worktree, ["rev-parse", "--abbrev-ref", "HEAD"])).toBe(
+        legacyLettaBranch,
+      );
+      expect(git(worktree, ["cat-file", "-p", "HEAD:review.txt"])).toBe(
+        "existing review",
+      );
+      expect(outputs.calls).toContainEqual(["LETTA_BRANCH", legacyLettaBranch]);
+      expect(outputs.calls).toContainEqual(["BASE_BRANCH", "main"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("deepens long-lived Letta branches before stale branch rejection", async () => {
+    const { root, worktree } = createRemoteWithPullRef({
+      reviewBranch: true,
+      reviewBranchExtraCommits: 25,
+    });
+
+    try {
+      const result = await setupBranch(
+        {} as any,
+        createPullRequestData(true),
+        createBranchContext(),
+        { cwd: worktree, setOutput: createOutputCollector().setOutput },
+      );
+
+      expect(result).toEqual({
+        baseBranch: "main",
+        lettaBranch: "letta/pr-37-review",
+        currentBranch: "letta/pr-37-review",
+      });
+      expect(git(worktree, ["cat-file", "-p", "HEAD:feature.txt"])).toBe(
+        "review branch",
+      );
+      expect(git(worktree, ["cat-file", "-p", "HEAD:review-25.txt"])).toBe(
+        "review 25",
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects stale remote Letta branches that miss the latest fork PR head", async () => {
+    const { root, worktree } = createRemoteWithPullRef({
+      reviewBranch: true,
+      advancePullRefAfterReviewBranch: true,
+    });
+
+    try {
+      await expect(
+        setupBranch(
+          {} as any,
+          createPullRequestData(true),
+          createBranchContext(),
+          { cwd: worktree, setOutput: createOutputCollector().setOutput },
+        ),
+      ).rejects.toThrow("does not contain the latest PR head");
+      expect(git(worktree, ["rev-parse", "--abbrev-ref", "HEAD"])).toBe(
+        "letta-pr-37",
+      );
+      expect(git(worktree, ["cat-file", "-p", "HEAD:updated.txt"])).toBe(
+        "updated PR head",
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("does not treat nested remote branch suffix matches as exact review branches", async () => {
+    const { root, worktree } = createRemoteWithPullRef({
+      nestedReviewBranchOnly: true,
+    });
+
+    try {
+      const result = await setupBranch(
+        {} as any,
+        createPullRequestData(true),
+        createBranchContext(),
+        { cwd: worktree, setOutput: createOutputCollector().setOutput },
+      );
+
+      expect(result).toEqual({
+        baseBranch: "main",
+        lettaBranch: "letta/pr-37-review",
+        currentBranch: "letta/pr-37-review",
+      });
+      expect(git(worktree, ["cat-file", "-p", "HEAD:feature.txt"])).toBe(
+        "feature",
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects invalid generated review branch names before reuse fetches", async () => {
+    const { root, worktree } = createRemoteWithPullRef();
+
+    try {
+      await expect(
+        setupBranch(
+          {} as any,
+          createPullRequestData(true),
+          createBranchContextWithPrefix("bad*prefix/"),
+          { cwd: worktree },
+        ),
+      ).rejects.toThrow("Invalid generated branch name");
+      expect(git(worktree, ["rev-parse", "--abbrev-ref", "HEAD"])).toBe("main");
+    } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });

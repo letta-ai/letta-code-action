@@ -338,6 +338,7 @@ export async function fetchGitHubData({
 export function computeChangedFileSHAs(
   isPR: boolean,
   changedFiles: GitHubFile[],
+  cwd?: string,
 ): GitHubFileWithSHA[] {
   if (!isPR || changedFiles.length === 0) {
     return [];
@@ -354,6 +355,7 @@ export function computeChangedFileSHAs(
     try {
       const sha = execFileSync("git", ["hash-object", "--", file.path], {
         encoding: "utf-8",
+        cwd,
       }).trim();
       return {
         ...file,
