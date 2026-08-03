@@ -308,7 +308,7 @@ steps:
 
 ## Security
 
-By default, only repository collaborators with write access can trigger the action. This prevents unauthorized users from consuming your API credits.
+By default, only repository collaborators with write access can trigger the action. This prevents unauthorized users from consuming your API credits. For fork pull requests, approving the workflow in GitHub also works: the action verifies that the user who started the approved run attempt has write access before proceeding.
 
 Use `allowed_bots` for bot users or `allowed_non_write_users` to allow specific usernames without write permissions (use with caution).
 
