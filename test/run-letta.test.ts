@@ -178,6 +178,12 @@ describe("prepareRunConfig", () => {
       expect(config.lettaArgs).toContain("-p");
     });
 
+    test("always routes execution through the cloud sandbox", () => {
+      const config = prepareRunConfig(mockPromptPath, {});
+      expect(config.lettaArgs).toContain("--environment");
+      expect(config.lettaArgs).toContain("cloud");
+    });
+
     test("always includes --output-format stream-json", () => {
       const config = prepareRunConfig(mockPromptPath, {});
       expect(config.lettaArgs).toContain("--output-format");

@@ -17,7 +17,7 @@ const execAsync = promisify(exec);
 const PIPE_PATH = `${process.env.RUNNER_TEMP}/letta_prompt_pipe`;
 const EXECUTION_FILE = `${process.env.RUNNER_TEMP}/letta-execution-output.json`;
 const AGENT_INFO_FILE = `${process.env.RUNNER_TEMP}/letta-agent-info.json`;
-const BASE_ARGS = ["--output-format", "stream-json"];
+const BASE_ARGS = ["--environment", "cloud", "--output-format", "stream-json"];
 
 // ADE (Agent Development Environment) URL
 const ADE_BASE_URL = "https://app.letta.com/agents";
