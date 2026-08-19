@@ -99,9 +99,9 @@ inputs:
     required: false
     default: "opus"
   environment:
-    description: "Environment to run Letta Code in. Defaults to the cloud sandbox; set to an empty string to run on the GitHub Actions runner."
+    description: "Optional environment to run Letta Code in (e.g., cloud). Leave empty to run on the GitHub Actions runner."
     required: false
-    default: "cloud"
+    default: ""
   agent_id:
     description: "Specific Letta agent ID to use. If not provided, the action will find or create an agent automatically."
     required: false

@@ -165,7 +165,7 @@ This creates a new conversation while keeping the same agent (preserving its mem
 | `github_token`             | GitHub token for API access                                | Required      |
 | `agent_id`                 | Specific agent ID to use (auto-discovers if not set)       | None          |
 | `model`                    | Model to use (`opus`, `sonnet-4.5`, `haiku`, `gpt-4.1`)    | `opus`        |
-| `environment`              | Execution environment (empty uses the GitHub runner)       | `cloud`       |
+| `environment`              | Execution environment (e.g., `cloud`)                      | None          |
 | `prompt`                   | Auto-trigger with this prompt (for automated workflows)    | None          |
 | `trigger_phrase`           | Phrase that activates the agent                            | `@letta-code` |
 | `label_trigger`            | Label that triggers the action                             | `letta-code`  |
