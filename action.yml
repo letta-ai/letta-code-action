@@ -37,6 +37,10 @@ inputs:
     description: "Instructions for Letta. Can be a direct prompt or custom template."
     required: false
     default: ""
+  followup_prompt:
+    description: "Instructions for resumed agent-mode conversations. Falls back to prompt when empty."
+    required: false
+    default: ""
 
   # Auth configuration
   letta_api_key:
@@ -156,6 +160,7 @@ runs:
       env:
         MODE: ${{ inputs.mode }}
         PROMPT: ${{ inputs.prompt }}
+        FOLLOWUP_PROMPT: ${{ inputs.followup_prompt }}
         TRIGGER_PHRASE: ${{ inputs.trigger_phrase }}
         ASSIGNEE_TRIGGER: ${{ inputs.assignee_trigger }}
         LABEL_TRIGGER: ${{ inputs.label_trigger }}

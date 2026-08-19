@@ -157,6 +157,10 @@ To force a new conversation, use: `@letta-code [--new] start fresh`
 
 This creates a new conversation while keeping the same agent (preserving its memory and learned preferences).
 
+### Follow-up Prompts
+
+Automated agent-mode workflows can provide a shorter `followup_prompt` for runs that resume an existing issue or PR conversation. The initial run uses `prompt`; resumed runs use `followup_prompt`. If `followup_prompt` is empty, every run uses `prompt`.
+
 ## Configuration
 
 | Input                      | Description                                                | Default       |
@@ -167,6 +171,7 @@ This creates a new conversation while keeping the same agent (preserving its mem
 | `model`                    | Model to use (`opus`, `sonnet-4.5`, `haiku`, `gpt-4.1`)    | `opus`        |
 | `environment`              | Execution environment (e.g., `cloud`)                      | None          |
 | `prompt`                   | Auto-trigger with this prompt (for automated workflows)    | None          |
+| `followup_prompt`          | Prompt used when resuming an existing conversation         | `prompt`      |
 | `trigger_phrase`           | Phrase that activates the agent                            | `@letta-code` |
 | `label_trigger`            | Label that triggers the action                             | `letta-code`  |
 | `assignee_trigger`         | Username that triggers when assigned                       | None          |

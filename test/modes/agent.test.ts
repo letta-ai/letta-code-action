@@ -13,6 +13,9 @@ import { createMockContext, createMockAutomationContext } from "../mockContext";
 import * as core from "@actions/core";
 import * as gitConfig from "../../src/github/operations/git-config";
 import * as lettaClient from "../../src/letta/client";
+import { mkdtempSync, readFileSync, rmSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 
 describe("Agent Mode", () => {
   let mockContext: GitHubContext;
@@ -20,8 +23,13 @@ describe("Agent Mode", () => {
   let setOutputSpy: any;
   let configureGitAuthSpy: any;
   let findConversationBySummarySpy: any;
+  let originalRunnerTemp: string | undefined;
+  let runnerTemp: string;
 
   beforeEach(() => {
+    originalRunnerTemp = process.env.RUNNER_TEMP;
+    runnerTemp = mkdtempSync(join(tmpdir(), "letta-action-agent-mode-"));
+    process.env.RUNNER_TEMP = runnerTemp;
     mockContext = createMockAutomationContext({
       eventName: "workflow_dispatch",
     });
@@ -52,6 +60,12 @@ describe("Agent Mode", () => {
     setOutputSpy?.mockRestore();
     configureGitAuthSpy?.mockRestore();
     findConversationBySummarySpy?.mockRestore();
+    rmSync(runnerTemp, { recursive: true, force: true });
+    if (originalRunnerTemp === undefined) {
+      delete process.env.RUNNER_TEMP;
+    } else {
+      process.env.RUNNER_TEMP = originalRunnerTemp;
+    }
   });
 
   test("agent mode has correct properties", () => {
@@ -263,14 +277,18 @@ describe("Agent Mode", () => {
       githubToken: "test-token",
     });
 
-    // Note: We can't easily test file creation in this unit test,
-    // but we can verify the method completes without errors
     // With our conditional MCP logic, agent mode with no allowed tools
     // should not include any MCP config
     const callArgs = setOutputSpy.mock.calls[0];
     expect(callArgs[0]).toBe("letta_args");
     // Should be empty or just whitespace when no MCP servers are included
     expect(callArgs[1]).not.toContain("--mcp-config");
+    expect(
+      readFileSync(
+        join(runnerTemp, "letta-prompts", "letta-prompt.txt"),
+        "utf8",
+      ),
+    ).toBe("Custom prompt content");
   });
 
   test("prepare method resumes existing conversation on entity context (PR)", async () => {
@@ -278,6 +296,7 @@ describe("Agent Mode", () => {
       eventName: "pull_request",
       inputs: {
         prompt: "Review this PR",
+        followupPrompt: "Review the latest changes only",
         agentId: "agent-configured",
       },
     });
@@ -305,6 +324,12 @@ describe("Agent Mode", () => {
       "create_new_conversation",
       "false",
     );
+    expect(
+      readFileSync(
+        join(runnerTemp, "letta-prompts", "letta-prompt.txt"),
+        "utf8",
+      ),
+    ).toBe("Review the latest changes only");
   });
 
   test("prepare method creates new conversation when no existing conversation found on entity context", async () => {
@@ -312,6 +337,7 @@ describe("Agent Mode", () => {
       eventName: "pull_request",
       inputs: {
         prompt: "Review this PR",
+        followupPrompt: "Review the latest changes only",
         agentId: "agent-configured",
       },
     });
@@ -333,5 +359,39 @@ describe("Agent Mode", () => {
       "create_new_conversation",
       "true",
     );
+    expect(
+      readFileSync(
+        join(runnerTemp, "letta-prompts", "letta-prompt.txt"),
+        "utf8",
+      ),
+    ).toBe("Review this PR");
+  });
+
+  test("prepare method falls back to prompt when followup_prompt is empty", async () => {
+    const contextWithAgent = createMockContext({
+      eventName: "pull_request",
+      inputs: {
+        prompt: "Review this PR",
+        followupPrompt: "",
+        agentId: "agent-configured",
+      },
+    });
+
+    findConversationBySummarySpy.mockImplementation(
+      async () => "conv-existing-123",
+    );
+
+    await agentMode.prepare({
+      context: contextWithAgent,
+      octokit: { rest: {} } as any,
+      githubToken: "test-token",
+    });
+
+    expect(
+      readFileSync(
+        join(runnerTemp, "letta-prompts", "letta-prompt.txt"),
+        "utf8",
+      ),
+    ).toBe("Review this PR");
   });
 });

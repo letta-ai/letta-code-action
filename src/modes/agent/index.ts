@@ -104,16 +104,6 @@ export const agentMode: Mode = {
       recursive: true,
     });
 
-    // Write the prompt file - use the user's prompt directly
-    const promptContent =
-      context.inputs.prompt ||
-      `Repository: ${context.repository.owner}/${context.repository.repo}`;
-
-    await writeFile(
-      `${process.env.RUNNER_TEMP || "/tmp"}/letta-prompts/letta-prompt.txt`,
-      promptContent,
-    );
-
     // Check for branch info from environment variables (useful for auto-fix workflows)
     const lettaBranch = process.env.LETTA_BRANCH || undefined;
     const baseBranch =
@@ -124,6 +114,7 @@ export const agentMode: Mode = {
     const userLettaArgs = process.env.LETTA_ARGS || "";
 
     // Conversation persistence: search for existing conversation via Letta API
+    let isFollowup = false;
     if (context.inputs.agentId && isEntityContext(context)) {
       core.setOutput("agent_id", context.inputs.agentId);
 
@@ -140,6 +131,7 @@ export const agentMode: Mode = {
 
       if (existingConversationId) {
         // Resume existing conversation
+        isFollowup = true;
         core.setOutput("conversation_id", existingConversationId);
         core.setOutput("is_followup", "true");
         core.setOutput("create_new_conversation", "false");
@@ -155,6 +147,17 @@ export const agentMode: Mode = {
       core.setOutput("agent_id", context.inputs.agentId);
       core.setOutput("create_new_conversation", "true");
     }
+
+    const promptContent =
+      isFollowup && context.inputs.followupPrompt?.trim()
+        ? context.inputs.followupPrompt
+        : context.inputs.prompt ||
+          `Repository: ${context.repository.owner}/${context.repository.repo}`;
+
+    await writeFile(
+      `${process.env.RUNNER_TEMP || "/tmp"}/letta-prompts/letta-prompt.txt`,
+      promptContent,
+    );
 
     core.setOutput("letta_args", userLettaArgs.trim());
 

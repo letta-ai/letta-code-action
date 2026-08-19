@@ -14,6 +14,7 @@ import { LETTA_APP_BOT_ID, LETTA_BOT_LOGIN } from "../src/github/constants";
 
 const defaultInputs = {
   prompt: "",
+  followupPrompt: "",
   triggerPhrase: "/letta-code",
   assigneeTrigger: "",
   labelTrigger: "",
