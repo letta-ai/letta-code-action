@@ -127,6 +127,43 @@ describe("checkWritePermissions", () => {
     );
   });
 
+  test("should allow an external actor when a writer starts the run attempt", async () => {
+    const checkedUsers: string[] = [];
+    const mockOctokit = {
+      repos: {
+        getCollaboratorPermissionLevel: async ({ username }: any) => {
+          checkedUsers.push(username);
+          return {
+            data: { permission: username === "maintainer" ? "write" : "read" },
+          };
+        },
+      },
+    } as any;
+    const context = createContext();
+    context.triggeringActor = "maintainer";
+
+    const result = await checkWritePermissions(mockOctokit, context);
+
+    expect(result).toBe(true);
+    expect(checkedUsers).toEqual(["test-user", "maintainer"]);
+    expect(coreInfoSpy).toHaveBeenCalledWith(
+      "Triggering actor has write access: write",
+    );
+  });
+
+  test("should reject an external actor when the rerunning user is also read-only", async () => {
+    const mockOctokit = createMockOctokit("read");
+    const context = createContext();
+    context.triggeringActor = "other-external-user";
+
+    const result = await checkWritePermissions(mockOctokit, context);
+
+    expect(result).toBe(false);
+    expect(coreWarningSpy).toHaveBeenCalledWith(
+      "Actor and triggering actor have insufficient permissions: read, read",
+    );
+  });
+
   test("should return true for bot user", async () => {
     const mockOctokit = createMockOctokit("none");
     const context = createContext();

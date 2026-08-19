@@ -81,6 +81,8 @@ type BaseContext = {
     full_name: string;
   };
   actor: string;
+  /** User who started the current run attempt (for example, a maintainer rerunning an approved fork workflow). */
+  triggeringActor?: string;
   inputs: {
     prompt: string;
     triggerPhrase: string;
@@ -138,6 +140,7 @@ export function parseGitHubContext(): GitHubContext {
       full_name: `${context.repo.owner}/${context.repo.repo}`,
     },
     actor: context.actor,
+    triggeringActor: process.env.GITHUB_TRIGGERING_ACTOR || context.actor,
     inputs: {
       prompt: process.env.PROMPT || "",
       triggerPhrase: process.env.TRIGGER_PHRASE ?? "@letta-code",
