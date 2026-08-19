@@ -24,6 +24,7 @@ async function run() {
         process.env.INPUT_CREATE_NEW_CONVERSATION === "true",
       pathToLettaExecutable: process.env.INPUT_PATH_TO_LETTA_EXECUTABLE,
       showFullOutput: process.env.INPUT_SHOW_FULL_OUTPUT,
+      environment: process.env.INPUT_ENVIRONMENT,
     });
   } catch (error) {
     core.setFailed(`Action failed with error: ${error}`);

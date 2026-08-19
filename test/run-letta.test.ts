@@ -167,6 +167,23 @@ describe("prepareRunConfig", () => {
     });
   });
 
+  describe("environment handling", () => {
+    test("routes execution through the configured environment", () => {
+      const config = prepareRunConfig(mockPromptPath, {
+        environment: "letta-mini",
+      });
+      expect(config.lettaArgs).toContain("--environment");
+      expect(config.lettaArgs).toContain("letta-mini");
+    });
+
+    test("does not route execution when environment is empty", () => {
+      const config = prepareRunConfig(mockPromptPath, {
+        environment: "",
+      });
+      expect(config.lettaArgs).not.toContain("--environment");
+    });
+  });
+
   describe("always includes required flags", () => {
     test("always includes --yolo flag", () => {
       const config = prepareRunConfig(mockPromptPath, {});
@@ -176,12 +193,6 @@ describe("prepareRunConfig", () => {
     test("always includes -p flag", () => {
       const config = prepareRunConfig(mockPromptPath, {});
       expect(config.lettaArgs).toContain("-p");
-    });
-
-    test("always routes execution through the cloud sandbox", () => {
-      const config = prepareRunConfig(mockPromptPath, {});
-      expect(config.lettaArgs).toContain("--environment");
-      expect(config.lettaArgs).toContain("cloud");
     });
 
     test("always includes --output-format stream-json", () => {

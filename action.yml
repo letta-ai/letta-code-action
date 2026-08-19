@@ -98,6 +98,10 @@ inputs:
     description: "Model to use for the Letta agent (e.g., opus, sonnet-4.5, haiku, gpt-4.1)"
     required: false
     default: "opus"
+  environment:
+    description: "Environment to run Letta Code in. Defaults to the cloud sandbox; set to an empty string to run on the GitHub Actions runner."
+    required: false
+    default: "cloud"
   agent_id:
     description: "Specific Letta agent ID to use. If not provided, the action will find or create an agent automatically."
     required: false
@@ -217,6 +221,7 @@ runs:
         INPUT_PATH_TO_BUN_EXECUTABLE: ${{ inputs.path_to_bun_executable }}
         INPUT_SHOW_FULL_OUTPUT: ${{ inputs.show_full_output }}
         INPUT_MODEL: ${{ inputs.model }}
+        INPUT_ENVIRONMENT: ${{ inputs.environment }}
         INPUT_AGENT_ID: ${{ steps.prepare.outputs.agent_id }}
         INPUT_CONVERSATION_ID: ${{ steps.prepare.outputs.conversation_id }}
         INPUT_CREATE_NEW_CONVERSATION: ${{ steps.prepare.outputs.create_new_conversation }}
