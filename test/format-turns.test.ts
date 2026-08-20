@@ -358,6 +358,27 @@ describe("formatGroupedContent", () => {
     expect(result).toContain("**Duration:** 5.7s");
   });
 
+  test("omits cost when execution metrics do not report it", () => {
+    const groupedContent: GroupedContent[] = [
+      {
+        type: "final_result",
+        data: {
+          type: "result",
+          duration_ms: 16400,
+          result: "LGTM",
+          usage: null,
+        } as Turn,
+      },
+    ];
+
+    const result = formatGroupedContent(groupedContent);
+
+    expect(result).toContain("LGTM");
+    expect(result).toContain("**Duration:** 16.4s");
+    expect(result).not.toContain("**Cost:**");
+    expect(result).not.toContain("**Tokens:**");
+  });
+
   test("formats final results with token usage instead of cost", () => {
     const groupedContent: GroupedContent[] = [
       {

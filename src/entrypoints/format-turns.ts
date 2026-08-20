@@ -406,13 +406,14 @@ export function formatGroupedContent(groupedContent: GroupedContent[]): string {
         markdown += `${resultText}\n\n`;
       }
 
-      // Show tokens if available, otherwise show cost for backwards compatibility
-      if (usage?.total_tokens) {
-        markdown += `**Tokens:** ${usage.total_tokens.toLocaleString()} | **Duration:** ${(duration / 1000).toFixed(1)}s\n\n`;
-      } else {
-        const cost =
-          (data as any).total_cost_usd || (data as any).cost_usd || 0;
+      const totalTokens = usage?.total_tokens;
+      const cost = (data as any).total_cost_usd ?? (data as any).cost_usd;
+      if (typeof totalTokens === "number") {
+        markdown += `**Tokens:** ${totalTokens.toLocaleString()} | **Duration:** ${(duration / 1000).toFixed(1)}s\n\n`;
+      } else if (typeof cost === "number") {
         markdown += `**Cost:** $${cost.toFixed(4)} | **Duration:** ${(duration / 1000).toFixed(1)}s\n\n`;
+      } else {
+        markdown += `**Duration:** ${(duration / 1000).toFixed(1)}s\n\n`;
       }
     }
   }
