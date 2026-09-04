@@ -86,7 +86,7 @@ async function updateCommentWithAgentInfo(
  * Sanitizes JSON output to remove sensitive information when full output is disabled
  * Returns a safe summary message or null if the message should be completely suppressed
  */
-function sanitizeJsonOutput(
+export function sanitizeJsonOutput(
   jsonObj: any,
   showFullOutput: boolean,
 ): string | null {

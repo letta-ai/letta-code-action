@@ -3,6 +3,7 @@ import {
   findLastResult,
   formatFailureSummary,
   prepareRunConfig,
+  sanitizeJsonOutput,
   validateFailure,
 } from "../src/runner/run-letta";
 
@@ -298,7 +299,7 @@ describe("stream-json typed failures", () => {
     ).toBeNull();
   });
 
-  test("removes controls, bounds messages, and ignores result secrets", () => {
+  test("keeps secure output and the failure summary free of result secrets", () => {
     const secret = "TOP_SECRET_PROVIDER_BODY";
     const output = JSON.stringify({
       type: "result",
@@ -316,7 +317,15 @@ describe("stream-json typed failures", () => {
       },
     });
 
-    const failure = validateFailure(findLastResult(output)?.failure);
+    const result = findLastResult(output);
+    const secureOutput = sanitizeJsonOutput(result, false);
+    expect(secureOutput).not.toContain(secret);
+    expect(secureOutput).not.toContain("failure");
+    expect(
+      sanitizeJsonOutput({ type: "tool", tool_output: secret }, false),
+    ).toBeNull();
+
+    const failure = validateFailure(result?.failure);
     const summary = formatFailureSummary(failure!);
     expect(failure?.message).toStartWith("Safe message");
     expect(failure?.message.length).toBe(512);
