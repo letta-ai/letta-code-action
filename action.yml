@@ -121,6 +121,21 @@ outputs:
   conversation_id:
     description: "The Letta conversation ID used for this execution (enables concurrent tasks)"
     value: ${{ steps.letta-code.outputs.conversation_id }}
+  failure_stage:
+    description: "Machine-safe stage where Letta Code failed"
+    value: ${{ steps.letta-code.outputs.failure_stage }}
+  failure_code:
+    description: "Machine-safe Letta Code failure code"
+    value: ${{ steps.letta-code.outputs.failure_code }}
+  failure_message:
+    description: "Sanitized Letta Code failure message"
+    value: ${{ steps.letta-code.outputs.failure_message }}
+  failure_http_status:
+    description: "HTTP status associated with the Letta Code failure, if any"
+    value: ${{ steps.letta-code.outputs.failure_http_status }}
+  failure_retryable:
+    description: "Whether the Letta Code failure may be retried"
+    value: ${{ steps.letta-code.outputs.failure_retryable }}
   branch_name:
     description: "The branch created by Letta Code for this execution"
     value: ${{ steps.prepare.outputs.LETTA_BRANCH }}

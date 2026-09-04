@@ -148,6 +148,123 @@ type PreparedConfig = {
   env: Record<string, string>;
 };
 
+export type LettaFailure = {
+  stage: string;
+  code: string;
+  message: string;
+  http_status: number | null;
+  retryable: boolean;
+};
+
+type JsonRecord = Record<string, unknown>;
+
+const FAILURE_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const FAILURE_IDENTIFIER_MAX_LENGTH = 128;
+const FAILURE_MESSAGE_MAX_LENGTH = 512;
+const FAILURE_KEYS = new Set([
+  "stage",
+  "code",
+  "message",
+  "http_status",
+  "retryable",
+  "client_message_ids",
+]);
+
+function isJsonRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Parse all NDJSON records from the complete accumulated process output. */
+export function parseNdjsonOutput(output: string): JsonRecord[] {
+  const records: JsonRecord[] = [];
+
+  for (const line of output.split("\n")) {
+    if (!line.trim()) continue;
+
+    try {
+      const parsed: unknown = JSON.parse(line);
+      if (isJsonRecord(parsed)) records.push(parsed);
+    } catch {
+      // Non-JSON output must never be used in a failure summary.
+    }
+  }
+
+  return records;
+}
+
+/** Find the final result envelope in complete accumulated stream-json output. */
+export function findLastResult(output: string): JsonRecord | null {
+  let lastResult: JsonRecord | null = null;
+
+  for (const record of parseNdjsonOutput(output)) {
+    if (record.type === "result") lastResult = record;
+  }
+
+  return lastResult;
+}
+
+/** Strictly validate and sanitize the public failure fields from a result. */
+export function validateFailure(value: unknown): LettaFailure | null {
+  if (!isJsonRecord(value)) return null;
+  if (Object.keys(value).some((key) => !FAILURE_KEYS.has(key))) return null;
+
+  const { stage, code, message, http_status: httpStatus, retryable } = value;
+  const validIdentifier = (field: unknown): field is string =>
+    typeof field === "string" &&
+    field.length <= FAILURE_IDENTIFIER_MAX_LENGTH &&
+    FAILURE_IDENTIFIER_PATTERN.test(field);
+
+  if (!validIdentifier(stage) || !validIdentifier(code)) return null;
+  if (typeof message !== "string" || typeof retryable !== "boolean") {
+    return null;
+  }
+  if (
+    httpStatus !== null &&
+    (typeof httpStatus !== "number" ||
+      !Number.isInteger(httpStatus) ||
+      httpStatus < 100 ||
+      httpStatus > 599)
+  ) {
+    return null;
+  }
+  const clientMessageIds = value.client_message_ids;
+  if (
+    !Array.isArray(clientMessageIds) ||
+    clientMessageIds.length > 32 ||
+    clientMessageIds.some(
+      (id) => typeof id !== "string" || id.length === 0 || id.length > 256,
+    )
+  ) {
+    return null;
+  }
+
+  const safeMessage = Array.from(message, (character) => {
+    const codePoint = character.charCodeAt(0);
+    return codePoint < 32 || (codePoint >= 127 && codePoint <= 159)
+      ? " "
+      : character;
+  })
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, FAILURE_MESSAGE_MAX_LENGTH);
+  if (!safeMessage) return null;
+
+  return {
+    stage,
+    code,
+    message: safeMessage,
+    http_status: httpStatus,
+    retryable,
+  };
+}
+
+export function formatFailureSummary(failure: LettaFailure): string {
+  const httpStatus =
+    failure.http_status === null ? "" : ` (HTTP ${failure.http_status})`;
+  return `Letta Code failed at ${failure.stage} [${failure.code}]${httpStatus}: ${failure.message} (retryable: ${failure.retryable})`;
+}
+
 export function prepareRunConfig(
   promptPath: string,
   options: LettaOptions,
@@ -304,33 +421,7 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
   const lettaExecutable = options.pathToLettaExecutable || "letta";
   console.log(`Full command: ${lettaExecutable} ${config.lettaArgs.join(" ")}`);
 
-  // Start sending prompt to pipe in background
-  const catProcess = spawn("cat", [config.promptPath], {
-    stdio: ["ignore", "pipe", "inherit"],
-  });
-  const pipeStream = createWriteStream(PIPE_PATH);
-  catProcess.stdout.pipe(pipeStream);
-
-  catProcess.on("error", (error) => {
-    console.error("Error reading prompt file:", error);
-    pipeStream.destroy();
-  });
-
-  const lettaProcess = spawn(lettaExecutable, config.lettaArgs, {
-    stdio: ["pipe", "pipe", "inherit"],
-    env: {
-      ...process.env,
-      ...config.env,
-    },
-  });
-
-  // Handle Letta process errors
-  lettaProcess.on("error", (error) => {
-    console.error("Error spawning Letta process:", error);
-    pipeStream.destroy();
-  });
-
-  // Determine if full output should be shown
+  // Determine if full output should be shown before configuring child stdio.
   const isDebugMode = process.env.ACTIONS_STEP_DEBUG === "true";
   let showFullOutput = options.showFullOutput === "true" || isDebugMode;
 
@@ -343,6 +434,48 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
       "Rerun in debug mode or enable `show_full_output: true` in your workflow file for full output.",
     );
   }
+
+  // Start sending prompt to pipe in background
+  const catProcess = spawn("cat", [config.promptPath], {
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+  const pipeStream = createWriteStream(PIPE_PATH);
+  catProcess.stdout.pipe(pipeStream);
+
+  catProcess.on("error", (error) => {
+    if (showFullOutput) console.error("Error reading prompt file:", error);
+    pipeStream.destroy();
+  });
+
+  const lettaProcess = spawn(lettaExecutable, config.lettaArgs, {
+    stdio: ["pipe", "pipe", "pipe"],
+    env: {
+      ...process.env,
+      ...config.env,
+    },
+  });
+
+  let spawnFailed = false;
+  const processCompletion = new Promise<number>((resolve) => {
+    lettaProcess.once("close", (code) => resolve(code ?? 1));
+    lettaProcess.once("error", (error) => {
+      spawnFailed = true;
+      pipeStream.destroy();
+      if (showFullOutput) {
+        console.error("Error spawning Letta process:", error);
+      }
+      resolve(1);
+    });
+  });
+
+  // Always drain stderr. Raw stderr is forwarded only after the caller has
+  // explicitly opted into full output, since it may contain provider bodies.
+  lettaProcess.stderr.on("data", (data) => {
+    if (showFullOutput) process.stderr.write(data);
+  });
+  lettaProcess.stdin.on("error", (error) => {
+    if (showFullOutput) console.error("Error writing Letta stdin:", error);
+  });
 
   // Capture output for parsing execution metrics
   let output = "";
@@ -444,7 +577,7 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
 
   // Handle stdout errors
   lettaProcess.stdout.on("error", (error) => {
-    console.error("Error reading Letta stdout:", error);
+    if (showFullOutput) console.error("Error reading Letta stdout:", error);
   });
 
   // Pipe from named pipe to Letta
@@ -453,21 +586,24 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
 
   // Handle pipe process errors
   pipeProcess.on("error", (error) => {
-    console.error("Error reading from named pipe:", error);
+    if (showFullOutput) console.error("Error reading from named pipe:", error);
     lettaProcess.kill("SIGTERM");
   });
 
-  // Wait for Letta to finish
-  const exitCode = await new Promise<number>((resolve) => {
-    lettaProcess.on("close", (code) => {
-      resolve(code || 0);
-    });
+  // Wait for Letta to finish before parsing terminal records. NDJSON records
+  // may span arbitrary stdout chunks, so chunk-local parsing is insufficient.
+  const exitCode = await processCompletion;
+  const outputRecords = parseNdjsonOutput(output);
+  const terminalResult = findLastResult(output);
+  const typedFailure = validateFailure(terminalResult?.failure);
 
-    lettaProcess.on("error", (error) => {
-      console.error("Letta Code process error:", error);
-      resolve(1);
-    });
-  });
+  for (const record of outputRecords) {
+    if (typeof record.agent_id === "string") agentId = record.agent_id;
+    if (typeof record.conversation_id === "string") {
+      conversationId = record.conversation_id;
+    }
+    if (typeof record.model === "string") modelHandle = record.model;
+  }
 
   // Clean up processes
   try {
@@ -488,8 +624,17 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
     // Ignore errors during cleanup
   }
 
-  // Set conclusion based on exit code
-  if (exitCode === 0) {
+  const hasFailureField =
+    terminalResult !== null &&
+    Object.prototype.hasOwnProperty.call(terminalResult, "failure");
+  const runFailed =
+    exitCode !== 0 ||
+    terminalResult?.subtype === "error" ||
+    terminalResult?.is_error === true ||
+    hasFailureField;
+
+  // Set conclusion based on the process and terminal result.
+  if (!runFailed) {
     // Try to process the output and save execution metrics
     try {
       await writeFile("output.txt", output);
@@ -569,6 +714,21 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
       core.setOutput("model", modelHandle);
     }
 
-    process.exit(exitCode);
+    if (typedFailure) {
+      core.setOutput("failure_stage", typedFailure.stage);
+      core.setOutput("failure_code", typedFailure.code);
+      core.setOutput("failure_message", typedFailure.message);
+      core.setOutput(
+        "failure_http_status",
+        typedFailure.http_status === null ? "" : typedFailure.http_status,
+      );
+      core.setOutput("failure_retryable", typedFailure.retryable);
+      throw new Error(formatFailureSummary(typedFailure));
+    }
+
+    if (spawnFailed) {
+      throw new Error("Letta Code failed to start.");
+    }
+    throw new Error(`Letta Code failed (exit code ${exitCode}).`);
   }
 }

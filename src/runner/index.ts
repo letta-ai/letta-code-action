@@ -27,7 +27,7 @@ async function run() {
       environment: process.env.INPUT_ENVIRONMENT,
     });
   } catch (error) {
-    core.setFailed(`Action failed with error: ${error}`);
+    core.setFailed(error instanceof Error ? error.message : "Action failed.");
     core.setOutput("conclusion", "failure");
     process.exit(1);
   }

@@ -1,5 +1,10 @@
 import { describe, test, expect } from "bun:test";
-import { prepareRunConfig } from "../src/runner/run-letta";
+import {
+  findLastResult,
+  formatFailureSummary,
+  prepareRunConfig,
+  validateFailure,
+} from "../src/runner/run-letta";
 
 describe("prepareRunConfig", () => {
   const mockPromptPath = "/tmp/prompt.txt";
@@ -213,5 +218,163 @@ describe("prepareRunConfig", () => {
       expect(config.env).toBeDefined();
       expect(typeof config.env).toBe("object");
     });
+  });
+});
+
+describe("stream-json typed failures", () => {
+  test("parses and formats a typed 402 failure", () => {
+    const output = [
+      JSON.stringify({ type: "system", subtype: "init" }),
+      JSON.stringify({
+        type: "result",
+        is_error: true,
+        failure: {
+          stage: "provider_request",
+          code: "payment_required",
+          message: "Payment is required",
+          http_status: 402,
+          retryable: false,
+          client_message_ids: ["message-1"],
+        },
+      }),
+    ].join("\n");
+
+    const failure = validateFailure(findLastResult(output)?.failure);
+    expect(failure).toEqual({
+      stage: "provider_request",
+      code: "payment_required",
+      message: "Payment is required",
+      http_status: 402,
+      retryable: false,
+    });
+    expect(formatFailureSummary(failure!)).toBe(
+      "Letta Code failed at provider_request [payment_required] (HTTP 402): Payment is required (retryable: false)",
+    );
+  });
+
+  test("parses a retryable typed 500 failure", () => {
+    const failure = validateFailure({
+      stage: "api",
+      code: "internal_error",
+      message: "Provider temporarily unavailable",
+      http_status: 500,
+      retryable: true,
+      client_message_ids: [],
+    });
+
+    expect(failure?.http_status).toBe(500);
+    expect(failure?.retryable).toBe(true);
+    expect(formatFailureSummary(failure!)).toContain("(retryable: true)");
+  });
+
+  test("rejects malformed typed failure data", () => {
+    expect(
+      validateFailure({
+        stage: "provider request",
+        code: "payment_required",
+        message: "Payment is required",
+        http_status: 99,
+        retryable: "false",
+      }),
+    ).toBeNull();
+    expect(
+      validateFailure({
+        stage: "provider",
+        code: "server_error",
+        message: "Safe message",
+        http_status: 500,
+        retryable: true,
+        client_message_ids: [42],
+      }),
+    ).toBeNull();
+    expect(
+      validateFailure({
+        stage: "provider",
+        code: "server_error",
+        message: "Safe message",
+        http_status: 500,
+        retryable: true,
+      }),
+    ).toBeNull();
+  });
+
+  test("removes controls, bounds messages, and ignores result secrets", () => {
+    const secret = "TOP_SECRET_PROVIDER_BODY";
+    const output = JSON.stringify({
+      type: "result",
+      result: secret,
+      stderr: secret,
+      tool_input: secret,
+      tool_output: secret,
+      failure: {
+        stage: "provider",
+        code: "server_error",
+        message: `Safe\nmessage\u0000${"x".repeat(600)}`,
+        http_status: null,
+        retryable: true,
+        client_message_ids: [],
+      },
+    });
+
+    const failure = validateFailure(findLastResult(output)?.failure);
+    const summary = formatFailureSummary(failure!);
+    expect(failure?.message).toStartWith("Safe message");
+    expect(failure?.message.length).toBe(512);
+    expect(summary).not.toContain(secret);
+    expect(summary).not.toContain("HTTP");
+  });
+
+  test("rejects extra failure keys without exposing their content", () => {
+    const secret = "TOP_SECRET_EXTRA_DATA";
+    const result = findLastResult(
+      JSON.stringify({
+        type: "result",
+        failure: {
+          stage: "provider",
+          code: "server_error",
+          message: "Safe message",
+          http_status: 500,
+          retryable: true,
+          client_message_ids: [],
+          provider_body: secret,
+        },
+      }),
+    );
+
+    const failure = validateFailure(result?.failure);
+    expect(failure).toBeNull();
+    expect(JSON.stringify(failure)).not.toContain(secret);
+  });
+
+  test("parses the last result from fully accumulated split chunks", () => {
+    const finalResult = JSON.stringify({
+      type: "result",
+      failure: {
+        stage: "billing",
+        code: "payment_required",
+        message: "Payment required",
+        http_status: 402,
+        retryable: false,
+        client_message_ids: [],
+      },
+    });
+    const chunks = [
+      '{"type":"res',
+      'ult","failure":{"stage":"old"}}\n',
+      finalResult.slice(0, 23),
+      finalResult.slice(23),
+    ];
+
+    const result = findLastResult(chunks.join(""));
+    expect(validateFailure(result?.failure)?.code).toBe("payment_required");
+  });
+
+  test("does not synthesize a typed failure when none is present", () => {
+    const output = [
+      JSON.stringify({ type: "assistant", message: "secret text" }),
+      JSON.stringify({ type: "result", is_error: true, result: "secret" }),
+    ].join("\n");
+
+    expect(validateFailure(findLastResult(output)?.failure)).toBeNull();
   });
 });
