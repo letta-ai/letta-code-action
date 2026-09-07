@@ -49,7 +49,7 @@ export async function checkWritePermissions(
       return true;
     }
 
-    // Check permissions directly using the permission endpoint
+    // Check permissions directly using the permission endpoint.
     const response = await octokit.repos.getCollaboratorPermissionLevel({
       owner: repository.owner,
       repo: repository.repo,
@@ -62,10 +62,42 @@ export async function checkWritePermissions(
     if (permissionLevel === "admin" || permissionLevel === "write") {
       core.info(`Actor has write access: ${permissionLevel}`);
       return true;
-    } else {
-      core.warning(`Actor has insufficient permissions: ${permissionLevel}`);
+    }
+
+    // GitHub keeps github.actor set to the external contributor when a
+    // maintainer approves and starts (or reruns) a fork workflow. The
+    // maintainer is exposed separately as github.triggering_actor. Accept the
+    // run only after independently verifying that user has write access.
+    const triggeringActor = context.triggeringActor;
+    if (triggeringActor && triggeringActor !== actor) {
+      core.info(
+        `Actor has insufficient permissions: ${permissionLevel}; checking triggering actor: ${triggeringActor}`,
+      );
+      const triggeringResponse =
+        await octokit.repos.getCollaboratorPermissionLevel({
+          owner: repository.owner,
+          repo: repository.repo,
+          username: triggeringActor,
+        });
+      const triggeringPermission = triggeringResponse.data.permission;
+      core.info(
+        `Triggering actor permission level retrieved: ${triggeringPermission}`,
+      );
+      if (
+        triggeringPermission === "admin" ||
+        triggeringPermission === "write"
+      ) {
+        core.info(`Triggering actor has write access: ${triggeringPermission}`);
+        return true;
+      }
+      core.warning(
+        `Actor and triggering actor have insufficient permissions: ${permissionLevel}, ${triggeringPermission}`,
+      );
       return false;
     }
+
+    core.warning(`Actor has insufficient permissions: ${permissionLevel}`);
+    return false;
   } catch (error) {
     core.error(`Failed to check permissions: ${error}`);
     throw new Error(`Failed to check permissions for ${actor}: ${error}`);
