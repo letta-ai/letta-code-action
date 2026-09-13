@@ -7,6 +7,7 @@ import { setupBranch } from "../../github/operations/branch";
 import { configureGitAuth } from "../../github/operations/git-config";
 import {
   fetchGitHubData,
+  computeChangedFileSHAs,
   extractTriggerTimestamp,
 } from "../../github/data/fetcher";
 import { createPrompt, generateDefaultPrompt } from "../../create-prompt";
@@ -224,6 +225,12 @@ export const tagMode: Mode = {
 
     // Setup branch
     const branchInfo = await setupBranch(octokit, githubData, context);
+    if (githubData.changedFilesWithSHA.length === 0) {
+      githubData.changedFilesWithSHA = computeChangedFileSHAs(
+        context.isPR,
+        githubData.changedFiles,
+      );
+    }
 
     // Configure git authentication if not using commit signing
     if (!context.inputs.useCommitSigning) {
