@@ -103,7 +103,7 @@ inputs:
     required: false
     default: "opus"
   environment:
-    description: "Optional environment to run Letta Code in (e.g., cloud). Leave empty to run on the GitHub Actions runner."
+    description: "Optional environment to run Letta Code in (e.g., cloud). Leave empty to run on the GitHub Actions runner. When set, the turn runs with the agent's own configuration and the model input is ignored."
     required: false
     default: ""
   agent_id:
