@@ -169,7 +169,7 @@ Automated agent-mode workflows can provide a shorter `followup_prompt` for runs 
 | `github_token`             | GitHub token for API access                                | Required      |
 | `agent_id`                 | Specific agent ID to use (auto-discovers if not set)       | None          |
 | `model`                    | Model to use (`opus`, `sonnet-4.5`, `haiku`, `gpt-4.1`)    | `opus`        |
-| `environment`              | Execution environment (e.g., `cloud`)                      | None          |
+| `environment`              | Execution environment (e.g., `cloud`); ignores `model`     | None          |
 | `prompt`                   | Auto-trigger with this prompt (for automated workflows)    | None          |
 | `followup_prompt`          | Prompt used when resuming an existing conversation         | `prompt`      |
 | `trigger_phrase`           | Phrase that activates the agent                            | `@letta-code` |

@@ -229,17 +229,29 @@ export function prepareRunConfig(
     lettaArgs.push("--new");
   }
 
-  // Model selection
-  if (options.model) {
-    lettaArgs.push("-m", options.model);
-  }
+  const environment = options.environment?.trim();
 
-  // YOLO mode - auto-approve all tool calls in headless mode
-  // This is required for CI where there's no human to approve
-  lettaArgs.push("--yolo");
+  if (environment) {
+    // With --environment, letta enqueues the message to the agent's existing
+    // Cloud harness (or the named computer) and that harness runs the turn
+    // with its own configuration. Since letta-code 0.32.5 the CLI rejects
+    // flags that configure local execution on such sends (--model, --yolo,
+    // --permission-mode, --tools, ...), so the action must not add them.
+    if (options.model) {
+      console.log(
+        `Ignoring model "${options.model}": the ${environment} environment runs with the agent's configured model.`,
+      );
+    }
+    lettaArgs.push("--environment", environment);
+  } else {
+    // Model selection
+    if (options.model) {
+      lettaArgs.push("-m", options.model);
+    }
 
-  if (options.environment?.trim()) {
-    lettaArgs.push("--environment", options.environment.trim());
+    // YOLO mode - auto-approve all tool calls in headless mode
+    // This is required for CI where there's no human to approve
+    lettaArgs.push("--yolo");
   }
 
   // Prompt flag

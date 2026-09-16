@@ -182,10 +182,58 @@ describe("prepareRunConfig", () => {
       });
       expect(config.lettaArgs).not.toContain("--environment");
     });
+
+    test("omits local execution flags when sending to a Cloud harness", () => {
+      // Since letta-code 0.32.5, `letta -p --environment cloud` rejects
+      // --model, --yolo, and other flags that configure local execution.
+      const config = prepareRunConfig(mockPromptPath, {
+        agentId: "agent-123",
+        createNewConversation: true,
+        model: "auto",
+        environment: "cloud",
+      });
+      expect(config.lettaArgs).toEqual([
+        "--agent",
+        "agent-123",
+        "--new",
+        "--environment",
+        "cloud",
+        "-p",
+        "--output-format",
+        "stream-json",
+      ]);
+    });
+
+    test("keeps the local flags when no environment is configured", () => {
+      const config = prepareRunConfig(mockPromptPath, {
+        agentId: "agent-123",
+        model: "auto",
+      });
+      expect(config.lettaArgs).toEqual([
+        "--agent",
+        "agent-123",
+        "-m",
+        "auto",
+        "--yolo",
+        "-p",
+        "--output-format",
+        "stream-json",
+      ]);
+    });
+
+    test("still passes user letta_args through on environment sends", () => {
+      const config = prepareRunConfig(mockPromptPath, {
+        environment: "cloud",
+        lettaArgs: "--new --verbose",
+      });
+      expect(config.lettaArgs).toContain("--new");
+      expect(config.lettaArgs).toContain("--verbose");
+      expect(config.lettaArgs).not.toContain("--yolo");
+    });
   });
 
   describe("always includes required flags", () => {
-    test("always includes --yolo flag", () => {
+    test("includes --yolo when running on the runner", () => {
       const config = prepareRunConfig(mockPromptPath, {});
       expect(config.lettaArgs).toContain("--yolo");
     });
