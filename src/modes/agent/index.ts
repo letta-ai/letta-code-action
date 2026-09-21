@@ -48,8 +48,9 @@ function extractGitHubContext(context: GitHubContext): Record<string, string> {
  *
  * This mode runs whenever an explicit prompt is provided in the workflow configuration.
  * On entity contexts (PRs/issues), it searches for existing conversations via the
- * Letta API (matching on conversation summary) so that subsequent runs on the same
- * PR/issue resume the existing conversation instead of starting fresh.
+ * Letta API (matching on conversation summary) so that subsequent runs can use the
+ * follow-up prompt. The runner resumes that conversation only for explicit environment
+ * sends; runner-hosted follow-ups start a fresh conversation on the same agent.
  */
 export const agentMode: Mode = {
   name: "agent",
@@ -130,11 +131,22 @@ export const agentMode: Mode = {
       );
 
       if (existingConversationId) {
-        // Resume existing conversation
         isFollowup = true;
-        core.setOutput("conversation_id", existingConversationId);
         core.setOutput("is_followup", "true");
-        core.setOutput("create_new_conversation", "false");
+
+        if (context.inputs.environment?.trim()) {
+          // Explicit environment sends resume on that conversation's harness.
+          core.setOutput("conversation_id", existingConversationId);
+          core.setOutput("create_new_conversation", "false");
+        } else {
+          // Runner-hosted reviews need this checkout, its GitHub credentials,
+          // and the action skill. Letta Code 0.32.5+ routes --conversation to
+          // the existing Cloud harness, so start fresh on the same agent here.
+          console.log(
+            `Found existing conversation ${existingConversationId}; starting a fresh runner-hosted conversation on agent ${context.inputs.agentId}.`,
+          );
+          core.setOutput("create_new_conversation", "true");
+        }
       } else {
         // No existing conversation - create new one
         console.log(

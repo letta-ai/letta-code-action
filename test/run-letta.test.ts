@@ -221,6 +221,43 @@ describe("prepareRunConfig", () => {
       ]);
     });
 
+    test("starts a fresh runner conversation without Cloud-delivery flags", () => {
+      const config = prepareRunConfig(mockPromptPath, {
+        agentId: "agent-123",
+        createNewConversation: true,
+        model: "auto",
+      });
+      expect(config.lettaArgs).toEqual([
+        "--agent",
+        "agent-123",
+        "--new",
+        "-m",
+        "auto",
+        "--yolo",
+        "-p",
+        "--output-format",
+        "stream-json",
+      ]);
+    });
+
+    test("resumes the existing conversation only on an explicit environment", () => {
+      const config = prepareRunConfig(mockPromptPath, {
+        agentId: "agent-123",
+        conversationId: "conv-existing",
+        model: "auto",
+        environment: "cloud",
+      });
+      expect(config.lettaArgs).toEqual([
+        "--conversation",
+        "conv-existing",
+        "--environment",
+        "cloud",
+        "-p",
+        "--output-format",
+        "stream-json",
+      ]);
+    });
+
     test("still passes user letta_args through on environment sends", () => {
       const config = prepareRunConfig(mockPromptPath, {
         environment: "cloud",
