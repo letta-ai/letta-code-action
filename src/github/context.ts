@@ -84,6 +84,7 @@ type BaseContext = {
   inputs: {
     prompt: string;
     followupPrompt?: string;
+    environment?: string;
     triggerPhrase: string;
     assigneeTrigger: string;
     labelTrigger: string;
@@ -142,6 +143,7 @@ export function parseGitHubContext(): GitHubContext {
     inputs: {
       prompt: process.env.PROMPT || "",
       followupPrompt: process.env.FOLLOWUP_PROMPT || "",
+      environment: process.env.ENVIRONMENT || undefined,
       triggerPhrase: process.env.TRIGGER_PHRASE ?? "@letta-code",
       assigneeTrigger: process.env.ASSIGNEE_TRIGGER ?? "",
       labelTrigger: process.env.LABEL_TRIGGER ?? "",

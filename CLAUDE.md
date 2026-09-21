@@ -20,7 +20,7 @@ The pre-commit hook runs prettier, typecheck, and tests before each commit.
 
 A GitHub Action that adds a stateful Letta agent to repositories. Users mention `@letta-code` in issues/PRs to interact with the agent.
 
-Key difference from similar tools: **agent persistence**. The same agent resumes across multiple mentions on the same issue/PR, preserving memory and context.
+Key difference from similar tools: **agent persistence**. The same agent is reused across multiple mentions on the same issue/PR, preserving MemFS memory. Runner-hosted automated follow-ups start a fresh conversation; environment-routed automated follow-ups resume the existing conversation.
 
 ## Architecture
 

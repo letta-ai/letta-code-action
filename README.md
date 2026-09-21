@@ -159,7 +159,9 @@ This creates a new conversation while keeping the same agent (preserving its mem
 
 ### Follow-up Prompts
 
-Automated agent-mode workflows can provide a shorter `followup_prompt` for runs that resume an existing issue or PR conversation. The initial run uses `prompt`; resumed runs use `followup_prompt`. If `followup_prompt` is empty, every run uses `prompt`.
+Automated agent-mode workflows can provide a shorter `followup_prompt` after an earlier run is found for the issue or PR. The initial run uses `prompt`; later runs use `followup_prompt`. If `followup_prompt` is empty, every run uses `prompt`.
+
+Runner-hosted agent-mode follow-ups start a fresh conversation on the same agent. This keeps the review with the runner's checkout, GitHub credentials, and action skill. The agent retains its MemFS memory, but the new conversation does not contain earlier messages. When `environment` is set, the action instead resumes the existing conversation on that environment.
 
 ## Configuration
 
@@ -171,7 +173,7 @@ Automated agent-mode workflows can provide a shorter `followup_prompt` for runs 
 | `model`                    | Model to use (`opus`, `sonnet-4.5`, `haiku`, `gpt-4.1`)    | `opus`        |
 | `environment`              | Execution environment (e.g., `cloud`); ignores `model`     | None          |
 | `prompt`                   | Auto-trigger with this prompt (for automated workflows)    | None          |
-| `followup_prompt`          | Prompt used when resuming an existing conversation         | `prompt`      |
+| `followup_prompt`          | Prompt used after an earlier issue or PR run is found      | `prompt`      |
 | `trigger_phrase`           | Phrase that activates the agent                            | `@letta-code` |
 | `label_trigger`            | Label that triggers the action                             | `letta-code`  |
 | `assignee_trigger`         | Username that triggers when assigned                       | None          |

@@ -291,7 +291,7 @@ describe("Agent Mode", () => {
     ).toBe("Custom prompt content");
   });
 
-  test("prepare method resumes existing conversation on entity context (PR)", async () => {
+  test("prepare method starts a fresh runner conversation for an existing PR", async () => {
     const contextWithAgent = createMockContext({
       eventName: "pull_request",
       inputs: {
@@ -311,6 +311,46 @@ describe("Agent Mode", () => {
     await agentMode.prepare({
       context: contextWithAgent,
       octokit: mockOctokit,
+      githubToken: "test-token",
+    });
+
+    expect(setOutputSpy).toHaveBeenCalledWith("agent_id", "agent-configured");
+    expect(
+      setOutputSpy.mock.calls.some(
+        (call: unknown[]) => call[0] === "conversation_id",
+      ),
+    ).toBe(false);
+    expect(setOutputSpy).toHaveBeenCalledWith("is_followup", "true");
+    expect(setOutputSpy).toHaveBeenCalledWith(
+      "create_new_conversation",
+      "true",
+    );
+    expect(
+      readFileSync(
+        join(runnerTemp, "letta-prompts", "letta-prompt.txt"),
+        "utf8",
+      ),
+    ).toBe("Review the latest changes only");
+  });
+
+  test("prepare method resumes an existing PR conversation on an explicit environment", async () => {
+    const contextWithAgent = createMockContext({
+      eventName: "pull_request",
+      inputs: {
+        prompt: "Review this PR",
+        followupPrompt: "Review the latest changes only",
+        agentId: "agent-configured",
+        environment: "cloud",
+      },
+    });
+
+    findConversationBySummarySpy.mockImplementation(
+      async () => "conv-existing-123",
+    );
+
+    await agentMode.prepare({
+      context: contextWithAgent,
+      octokit: { rest: {} } as any,
       githubToken: "test-token",
     });
 
