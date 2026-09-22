@@ -131,6 +131,21 @@ function sanitizeJsonOutput(
   return null;
 }
 
+export function parseStreamJsonOutput(output: string): unknown[] {
+  return output
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => JSON.parse(line));
+}
+
+async function saveExecutionOutput(output: string): Promise<void> {
+  await writeFile("output.txt", output);
+  await writeFile(
+    EXECUTION_FILE,
+    JSON.stringify(parseStreamJsonOutput(output)),
+  );
+}
+
 export type LettaOptions = {
   lettaArgs?: string;
   model?: string;
@@ -504,21 +519,14 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
   if (exitCode === 0) {
     // Try to process the output and save execution metrics
     try {
-      await writeFile("output.txt", output);
-
-      // Process output.txt into JSON and save to execution file
-      const { stdout: jsonOutput } = await execAsync("jq -s '.' output.txt", {
-        maxBuffer: 10 * 1024 * 1024,
-      });
-      await writeFile(EXECUTION_FILE, jsonOutput);
-
+      await saveExecutionOutput(output);
+      core.setOutput("execution_file", EXECUTION_FILE);
       console.log(`Log saved to ${EXECUTION_FILE}`);
     } catch (e) {
       core.warning(`Failed to process output for execution metrics: ${e}`);
     }
 
     core.setOutput("conclusion", "success");
-    core.setOutput("execution_file", EXECUTION_FILE);
 
     // Output agent_id, conversation_id, and model if captured
     if (agentId) {
@@ -550,11 +558,7 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
     // Still try to save execution file if we have output
     if (output) {
       try {
-        await writeFile("output.txt", output);
-        const { stdout: jsonOutput } = await execAsync("jq -s '.' output.txt", {
-          maxBuffer: 10 * 1024 * 1024,
-        });
-        await writeFile(EXECUTION_FILE, jsonOutput);
+        await saveExecutionOutput(output);
         core.setOutput("execution_file", EXECUTION_FILE);
       } catch (e) {
         // Ignore errors when processing output during failure

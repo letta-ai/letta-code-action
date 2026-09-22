@@ -1,5 +1,28 @@
 import { describe, test, expect } from "bun:test";
-import { prepareRunConfig } from "../src/runner/run-letta";
+import {
+  parseStreamJsonOutput,
+  prepareRunConfig,
+} from "../src/runner/run-letta";
+
+describe("parseStreamJsonOutput", () => {
+  test("parses execution streams larger than the old child-process buffer", () => {
+    const payload = "x".repeat(11 * 1024 * 1024);
+    const output = [
+      JSON.stringify({ type: "assistant", payload }),
+      JSON.stringify({ type: "result", subtype: "success" }),
+      "",
+    ].join("\n");
+
+    const parsed = parseStreamJsonOutput(output) as Array<{
+      type: string;
+      payload?: string;
+    }>;
+
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0]?.payload).toHaveLength(payload.length);
+    expect(parsed[1]?.type).toBe("result");
+  });
+});
 
 describe("prepareRunConfig", () => {
   const mockPromptPath = "/tmp/prompt.txt";
