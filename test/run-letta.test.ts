@@ -2,6 +2,7 @@ import { describe, test, expect } from "bun:test";
 import {
   parseStreamJsonOutput,
   prepareRunConfig,
+  summarizeCliFailure,
 } from "../src/runner/run-letta";
 
 describe("parseStreamJsonOutput", () => {
@@ -21,6 +22,102 @@ describe("parseStreamJsonOutput", () => {
     expect(parsed).toHaveLength(2);
     expect(parsed[0]?.payload).toHaveLength(payload.length);
     expect(parsed[1]?.type).toBe("result");
+  });
+});
+
+describe("summarizeCliFailure", () => {
+  test("classifies a startup error without logging its message or credentials", () => {
+    const output = [
+      JSON.stringify({ type: "system", subtype: "init" }),
+      JSON.stringify({
+        type: "error",
+        session_id: "startup",
+        stop_reason: "error",
+        message: "Could not resolve authentication method: sk-secret12345",
+      }),
+    ].join("\n");
+
+    const summary = summarizeCliFailure(output);
+    expect(summary).toMatchObject({
+      phase: "startup",
+      category: "authentication",
+      stop_reason: "error",
+      last_event_type: "error",
+    });
+    expect(JSON.stringify(summary)).not.toContain("sk-secret12345");
+    expect(JSON.stringify(summary)).not.toContain("Could not resolve");
+  });
+
+  test("identifies an exit after init without any recorded review turn", () => {
+    expect(
+      summarizeCliFailure('{"type":"system","subtype":"init"}\n'),
+    ).toMatchObject({
+      phase: "before_turn",
+      category: "unknown",
+      last_event_type: "system",
+    });
+  });
+
+  test("prefers the explicit error over a final result carrying private text", () => {
+    const summary = summarizeCliFailure(
+      [
+        JSON.stringify({
+          type: "error",
+          message: "Invalid tool call IDs in a request",
+          stop_reason: "error",
+        }),
+        JSON.stringify({
+          type: "result",
+          subtype: "error",
+          result: "Private review prompt: internal plan",
+        }),
+      ].join("\n"),
+    );
+    expect(summary).toMatchObject({
+      category: "tool_call_ids",
+      last_event_type: "result",
+    });
+    expect(JSON.stringify(summary)).not.toContain("internal plan");
+  });
+
+  test("does not disclose tool-return content from an in-turn error", () => {
+    const output = [
+      JSON.stringify({ type: "message", message_type: "tool_return_message" }),
+      JSON.stringify({
+        type: "error",
+        session_id: "agent-1",
+        stop_reason: "llm_api_error",
+        message: "Private tool output: customer@email.com, token=not-for-logs",
+        api_error: { error_type: "provider_error" },
+      }),
+    ].join("\n");
+
+    const summary = summarizeCliFailure(output);
+    expect(summary).toMatchObject({
+      phase: "turn",
+      stop_reason: "llm_api_error",
+      error_type: "provider_error",
+    });
+    expect(JSON.stringify(summary)).not.toContain("customer@email.com");
+    expect(JSON.stringify(summary)).not.toContain("not-for-logs");
+  });
+
+  test("ignores malformed lines and rejects untrusted error labels", () => {
+    const summary = summarizeCliFailure(
+      "not json\n" +
+        JSON.stringify({
+          type: "error",
+          session_id: "startup",
+          message: "unexpected secret text",
+          api_error: { error_type: "secret text with spaces" },
+        }),
+    );
+    expect(summary).toMatchObject({
+      phase: "startup",
+      category: "unknown",
+      last_event_type: "error",
+    });
+    expect(summary).not.toHaveProperty("error_type");
   });
 });
 
