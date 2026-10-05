@@ -138,6 +138,89 @@ export function parseStreamJsonOutput(output: string): unknown[] {
     .map((line) => JSON.parse(line));
 }
 
+/** No error messages or tool output go into public job logs. */
+export function summarizeCliFailure(output: string) {
+  let last: Record<string, unknown> | undefined;
+  let error: Record<string, unknown> | undefined;
+  let hasTurn = false;
+  for (const line of output.split("\n")) {
+    try {
+      const event: unknown = JSON.parse(line);
+      if (event && typeof event === "object" && !Array.isArray(event)) {
+        last = event as Record<string, unknown>;
+        if (last.type === "message") hasTurn = true;
+        if (
+          last.type === "error" ||
+          (!error && last.type === "result" && last.subtype === "error")
+        ) {
+          error = last;
+        }
+      }
+    } catch {
+      // Non-JSON CLI output is never safe to print as an error diagnostic.
+    }
+  }
+
+  const message =
+    typeof error?.message === "string"
+      ? error.message
+      : typeof error?.result === "string"
+        ? error.result
+        : "";
+  const apiError =
+    error?.api_error && typeof error.api_error === "object"
+      ? (error.api_error as Record<string, unknown>)
+      : null;
+  const errorType = apiError?.error_type;
+  const stopReason = error?.stop_reason;
+  const categories: Array<[RegExp, string]> = [
+    [
+      /could not resolve authentication|unauthorized|forbidden|\b40[13]\b/i,
+      "authentication",
+    ],
+    [/rate.?limit|\b429\b/i, "rate_limit"],
+    [/invalid tool call ids/i, "tool_call_ids"],
+    [/context.window.exceeded/i, "context_window"],
+    [/websocket.*clos|econnreset|etimedout|fetch failed/i, "transport"],
+    [/enoent|cannot find (?:package|module)/i, "missing_dependency"],
+  ];
+  const lastEventType = ["error", "result", "system", "message"].includes(
+    String(last?.type),
+  )
+    ? String(last?.type)
+    : "unknown";
+
+  return {
+    phase:
+      error?.session_id === "startup"
+        ? "startup"
+        : hasTurn
+          ? "turn"
+          : "before_turn",
+    category:
+      categories.find(([pattern]) => pattern.test(message))?.[1] ?? "unknown",
+    last_event_type: lastEventType,
+    ...([
+      "llm_api_error",
+      "authentication_error",
+      "provider_error",
+      "rate_limit_error",
+      "context_window_exceeded",
+    ].includes(String(errorType)) && {
+      error_type: errorType,
+    }),
+    ...([
+      "error",
+      "llm_api_error",
+      "cancelled",
+      "context_window_exceeded",
+      "max_steps",
+    ].includes(String(stopReason)) && {
+      stop_reason: stopReason,
+    }),
+  };
+}
+
 async function saveExecutionOutput(output: string): Promise<void> {
   await writeFile("output.txt", output);
   await writeFile(
@@ -554,6 +637,9 @@ export async function runLetta(promptPath: string, options: LettaOptions) {
     }
   } else {
     core.setOutput("conclusion", "failure");
+    core.error(
+      `Letta Code exited ${exitCode}: ${JSON.stringify(summarizeCliFailure(output))}`,
+    );
 
     // Still try to save execution file if we have output
     if (output) {
